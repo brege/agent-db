@@ -1,0 +1,18 @@
+append:
+  permissions:
+    commands:
+      deny:
+        - "sudo *"
+        - "su *"
+        - "ssh *"
+        - "rm -rf *"
+        - "rm -f *"
+        - "python -c *"
+        - "python << *"
+        - "node -e *"
+        - "cat << *"
+        - "sh << *"
+        - "bash << *"
+        - "perl -e *"
+        - "ruby -e *"
+        - "envsubst << *"

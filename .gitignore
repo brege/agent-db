@@ -1,0 +1,16 @@
+/refs/*
+!/refs/.gitignore
+!/refs/README.md
+__pycache__/
+.pytest_cache/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+!playroute/raw/dist/
+!playroute/raw/dist/**
+!prototype/orig/dist/
+!prototype/orig/dist/**
+!prototype/new/dist/
+!prototype/new/dist/**
+prototype/orig/user/.git/

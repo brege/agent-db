@@ -1,0 +1,19 @@
+append:
+  permissions:
+    commands:
+      deny:
+        - "sudo *"
+        - "su *"
+        - "cargo install *"
+        - "go install *"
+        - "uv pip install *"
+        - "uv tool install *"
+        - "pipx install *"
+        - "pip install *"
+        - "npm install *"
+        - "apt install *"
+        - "apt-get install *"
+        - "pacman -S *"
+        - "yum install *"
+        - "dnf install *"
+        - "dpkg -i *"

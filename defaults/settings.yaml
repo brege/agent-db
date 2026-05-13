@@ -1,0 +1,5 @@
+append:
+  includeCoAuthoredBy: false
+  permissions: {}
+  model: haiku
+  alwaysThinkingEnabled: true
