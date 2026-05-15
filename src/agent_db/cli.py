@@ -6,9 +6,11 @@ import os
 import sys
 from pathlib import Path
 
+from rich.console import Console
+
 from agent_db import __version__
 from agent_db import claude, codex
-from agent_db.display import format_loaded_context, loaded_context_data
+from agent_db.display import loaded_context_data, print_loaded_context
 from agent_db.schema import Agent, claude_load_order, codex_load_order
 from agent_db.source import AgentSource
 
@@ -92,10 +94,11 @@ def show_memory(args: argparse.Namespace) -> int:
         print(json.dumps(output, indent=2))
         return 0
 
+    console = Console()
     for index, context in enumerate(contexts):
         if index:
-            print()
-        print(format_loaded_context(context))
+            console.print()
+        print_loaded_context(console, context)
 
     return 0
 

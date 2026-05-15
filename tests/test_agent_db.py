@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from textwrap import dedent
 
 from agent_db import claude, cli, codex
@@ -196,7 +197,8 @@ def test_memory_output_lists_files_without_permission_rule_spam(tmp_path) -> Non
                 output_path=claude_md,
                 layer_name="project",
                 source_path=claude_md,
-                path_globs=None,
+                path_globs=("src/**",),
+                requires_trust=True,
             ),
         ),
         settings_sources=(
@@ -227,22 +229,19 @@ def test_memory_output_lists_files_without_permission_rule_spam(tmp_path) -> Non
 
     assert "Permission Rules" not in output
     assert "git add *" not in output
-    lines = output.splitlines()
-    assert all(not line.startswith("#") for line in lines)
-    assert lines[0].startswith("CLAUDE ")
-    assert lines[1] == f"root {tmp_path}"
-    assert "startup" in lines
-    assert "config" in lines
-    assert next(line for line in lines if "./CLAUDE.md" in line).split() == [
-        "project",
-        "memory",
-        "./CLAUDE.md",
-    ]
-    assert next(line for line in lines if "./settings.json" in line).split() == [
-        "local",
-        "json",
-        "./settings.json",
-    ]
+    assert "#" not in {line[:1] for line in output.splitlines()}
+    assert "CLAUDE" in output
+    assert f"root {tmp_path}" in output
+    assert "startup" in output
+    assert "config" in output
+    assert "project" in output
+    assert "memory" in output
+    assert "settings" in output
+    assert "./CLAUDE.md" in output
+    assert "(paths: src/**)" in output
+    assert "[!trust]" in output
+    assert "local" in output
+    assert "./settings.json" in output
 
 
 def test_memory_json_output_uses_basic_data_structure(tmp_path, monkeypatch, capsys) -> None:
@@ -275,6 +274,42 @@ def test_memory_json_output_uses_basic_data_structure(tmp_path, monkeypatch, cap
         }
     ]
     assert context["config"] == []
+
+
+def test_memory_text_output_uses_rich_without_rule_spam(tmp_path, monkeypatch, capsys) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / ".git").mkdir()
+    claude_home = tmp_path / "claude"
+    claude_home.mkdir()
+    (claude_home / "CLAUDE.md").write_text("# User\n", encoding="utf-8")
+    monkeypatch.chdir(work)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude_home))
+
+    assert cli.main(["--memory", "--agent", "claude"]) == 0
+
+    output = capsys.readouterr().out
+    assert "CLAUDE" in output
+    assert "root" in output
+    assert "startup" in output
+    assert "user" in output
+    assert "memory" in output
+    assert "CLAUDE.md" in output
+    assert "Permission Rules" not in output
+
+
+def test_memory_output_shortens_home_paths() -> None:
+    project = Path.home() / "code" / "project"
+    output = format_loaded_context({
+        "agent": "codex",
+        "cwd": str(project),
+        "project_root": str(project),
+        "files": [],
+        "config": [],
+    })
+
+    assert "~/code/project" in output
+    assert str(Path.home()) not in output
 
 
 def test_cli_build_uses_documented_home_environment(tmp_path, monkeypatch) -> None:
