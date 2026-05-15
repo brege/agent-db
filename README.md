@@ -1,4 +1,3 @@
-<a href="#readme"><img src="docs/img/badge.png" width="100%" /></a>
 
 
 # agent-db
@@ -92,3 +91,5 @@ Refresh local snapshots:
 ```bash
 python docs.py
 ```
+
+<a href="#readme"><img src="docs/img/badge.svg" width="250" align="right" /></a>

@@ -16,7 +16,6 @@
 - [x] Support YAML `append` and `override`.
 - [x] Load `skills/*` and `agents/*`.
 - [ ] Add clearer validation errors for malformed source files.
-- [ ] Move the source contract out of `prototype/contract.yaml`.
 
 ## Claude
 
@@ -29,7 +28,6 @@
 - [x] Map path `edit` and `write` permissions to `Edit(...)`.
 - [x] Copy skills to `skills/*`.
 - [x] Copy agents to `agents/*.md`.
-- [ ] Decide whether generated global rules should be imported from `CLAUDE.md`, loaded from `~/.claude/rules/`, or path-scoped.
 
 ## Codex
 
@@ -59,8 +57,6 @@
 - [x] Resolve Codex output from `CODEX_HOME`, defaulting to `~/.codex`.
 - [x] Resolve Codex skills output from `~/.agents`.
 - [x] Support staged builds through environment variables.
-- [ ] Add `--check` for a read-only project view of Claude and Codex instruction files.
-- [ ] Add a build summary for skipped or non-representable rules.
 
 ## References
 
