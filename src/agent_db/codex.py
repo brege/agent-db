@@ -16,6 +16,7 @@ from agent_db.source import (
     merged_agents,
     merged_settings,
     merged_skills,
+    render_restrictions,
 )
 
 
@@ -56,8 +57,11 @@ def write_global(source: AgentSource, codex_home: Path, agents_home: Path) -> li
 
 
 def render_agents_md(source: AgentSource) -> str:
-    sections = [render_agents_section(section) for section in assemble_sections(source)]
-    return "# AGENTS.md\n\n" + "\n\n".join(sections).strip() + "\n"
+    blocks = [render_agents_section(section) for section in assemble_sections(source)]
+    restrictions = render_restrictions(merged_settings(source))
+    if restrictions:
+        blocks.append(restrictions)
+    return "# AGENTS.md\n\n" + "\n\n".join(blocks).strip() + "\n"
 
 
 def render_agents_section(section: Any) -> str:

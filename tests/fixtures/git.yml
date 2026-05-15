@@ -1,0 +1,24 @@
+scenarios:
+  worktree:
+    description: Git worktree with .git as a file (not directory)
+    home:
+      .claude:
+        CLAUDE.md: |
+          # User
+    repo:
+      git: file
+      files:
+        CLAUDE.md: |
+          # Worktree repo CLAUDE.md
+
+  regular:
+    description: Normal .git directory
+    home:
+      .claude:
+        CLAUDE.md: |
+          # User
+    repo:
+      git: true
+      files:
+        CLAUDE.md: |
+          # Regular repo CLAUDE.md

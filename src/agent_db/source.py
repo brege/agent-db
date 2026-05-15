@@ -254,6 +254,45 @@ def doc_settings(doc: SettingsDoc) -> dict[str, Any]:
     return merged
 
 
+def render_restrictions(settings: dict[str, Any]) -> str:
+    permissions = settings.get("permissions", {})
+    if not isinstance(permissions, dict):
+        return ""
+
+    lines = []
+    commands = permissions.get("commands", {})
+    if isinstance(commands, dict):
+        for pattern in commands.get("deny", []):
+            lines.append(
+                f"- Never run '{command_subject(pattern)}' or any command matching it."
+            )
+
+    paths = permissions.get("paths", {})
+    if isinstance(paths, dict):
+        deny = paths.get("deny", [])
+        path_rules = [
+            (rule["path"], set(rule.get("permissions", [])))
+            for rule in deny
+        ]
+        for permission, phrase in [
+            ("edit", "edit files"),
+            ("glob", "enumerate file paths"),
+            ("read", "read files"),
+            ("write", "write to files"),
+        ]:
+            for path, permissions_set in path_rules:
+                if permission in permissions_set:
+                    lines.append(f"- Never {phrase} matching {path}.")
+
+    if not lines:
+        return ""
+    return "## Enforced Restrictions\n\n" + "\n".join(lines)
+
+
+def command_subject(pattern: str) -> str:
+    return pattern[:-2] if pattern.endswith(" *") else pattern
+
+
 def apply_settings_doc(target: dict[str, Any], data: dict[str, Any]) -> None:
     if "append" not in data and "override" not in data:
         merge_append(target, data)

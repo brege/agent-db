@@ -4,6 +4,17 @@ import json
 from textwrap import dedent
 
 from agent_db import claude, cli, codex
+from agent_db.display import format_loaded_context, loaded_context_data
+from agent_db.schema import (
+    Agent,
+    InstructionSource,
+    LoadTiming,
+    LoadedContext,
+    RulesSource,
+    Scope,
+    SettingsSource,
+    SourceType,
+)
 from agent_db.source import AgentSource, assemble_sections
 
 
@@ -99,6 +110,7 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
                 commands:
                   deny:
                     - "sudo *"
+                    - "git add *"
             """
         ),
         encoding="utf-8",
@@ -132,13 +144,19 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
     claude.write_global(source, claude_home)
     codex.write_global(source, codex_home, agents_home)
 
-    assert (claude_home / "CLAUDE.md").read_text(encoding="utf-8") == (
-        "# CLAUDE.md\n\n## Code\n\n@rules/code.md\n"
-    )
+    claude_md = (claude_home / "CLAUDE.md").read_text(encoding="utf-8")
+    assert claude_md.startswith("# CLAUDE.md\n\n## Code\n\n@rules/code.md\n")
+    assert "## Permissions\n\n@rules/permissions.md" in claude_md
+    assert "## Enforced Restrictions" not in claude_md
     assert (claude_home / "rules" / "code.md").read_text(encoding="utf-8").count("# Code") == 1
+    permissions_md = (claude_home / "rules" / "permissions.md").read_text(encoding="utf-8")
+    assert "## Enforced Restrictions" in permissions_md
+    assert "- Never run 'git add' or any command matching it." in permissions_md
+    assert "- Never read files matching ~/.ssh/**." in permissions_md
     claude_settings = json.loads((claude_home / "settings.json").read_text(encoding="utf-8"))
     assert claude_settings["permissions"]["deny"] == [
         "Bash(sudo:*)",
+        "Bash(git add:*)",
         "Read(~/.ssh/**)",
         "Edit(~/.ssh/**)",
     ]
@@ -147,14 +165,116 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
     assert agents_md.startswith("# AGENTS.md\n\n## Code")
     assert agents_md.count("\n# ") == 0
     assert "user code" in agents_md
+    assert "## Enforced Restrictions" in agents_md
+    assert "- Never run 'git add' or any command matching it." in agents_md
     assert 'default_permissions = "agent_db"' in (codex_home / "config.toml").read_text(encoding="utf-8")
     assert "glob_scan_max_depth = 3" in (codex_home / "config.toml").read_text(encoding="utf-8")
     assert '["sudo"]' in (codex_home / "rules" / "commands.rules").read_text(encoding="utf-8")
+    assert '["git", "add"]' in (codex_home / "rules" / "commands.rules").read_text(encoding="utf-8")
     assert (claude_home / "skills" / "comment-remover" / "SKILL.md").is_file()
     assert (agents_home / "skills" / "comment-remover" / "SKILL.md").is_file()
 
     assert claude.write_global(source, claude_home) == []
     assert codex.write_global(source, codex_home, agents_home) == []
+
+
+def test_memory_output_lists_files_without_permission_rule_spam(tmp_path) -> None:
+    settings = tmp_path / "settings.json"
+    settings.write_text("{}", encoding="utf-8")
+    claude_md = tmp_path / "CLAUDE.md"
+    claude_md.write_text("# test\n", encoding="utf-8")
+    ctx = LoadedContext(
+        agent=Agent.CLAUDE,
+        cwd=tmp_path,
+        project_root=tmp_path,
+        sources=(
+            InstructionSource(
+                agent=Agent.CLAUDE,
+                source_type=SourceType.MEMORY,
+                scope=Scope.PROJECT,
+                load_timing=LoadTiming.STARTUP,
+                output_path=claude_md,
+                layer_name="project",
+                source_path=claude_md,
+                path_globs=None,
+            ),
+        ),
+        settings_sources=(
+            SettingsSource(
+                agent=Agent.CLAUDE,
+                scope=Scope.LOCAL,
+                format="json",
+                output_path=settings,
+                layer_name="local",
+                source_path=settings,
+            ),
+        ),
+        rules_sources=(
+            RulesSource(
+                agent=Agent.CLAUDE,
+                scope=Scope.USER,
+                rule_type="bash",
+                action="deny",
+                pattern="git add *",
+                output_path=settings,
+                layer_name="user",
+                source_path=settings,
+            ),
+        ),
+    )
+
+    output = format_loaded_context(loaded_context_data(ctx))
+
+    assert "Permission Rules" not in output
+    assert "git add *" not in output
+    lines = output.splitlines()
+    assert all(not line.startswith("#") for line in lines)
+    assert lines[0].startswith("CLAUDE ")
+    assert lines[1] == f"root {tmp_path}"
+    assert "startup" in lines
+    assert "config" in lines
+    assert next(line for line in lines if "./CLAUDE.md" in line).split() == [
+        "project",
+        "memory",
+        "./CLAUDE.md",
+    ]
+    assert next(line for line in lines if "./settings.json" in line).split() == [
+        "local",
+        "json",
+        "./settings.json",
+    ]
+
+
+def test_memory_json_output_uses_basic_data_structure(tmp_path, monkeypatch, capsys) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / ".git").mkdir()
+    claude_home = tmp_path / "claude"
+    claude_home.mkdir()
+    (claude_home / "CLAUDE.md").write_text("# User\n", encoding="utf-8")
+    monkeypatch.chdir(work)
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude_home))
+
+    assert cli.main(["--memory", "--agent", "claude", "--json"]) == 0
+
+    payload = json.loads(capsys.readouterr().out)
+    assert list(payload) == ["contexts"]
+    assert len(payload["contexts"]) == 1
+    context = payload["contexts"][0]
+    assert context["agent"] == "claude"
+    assert context["cwd"] == str(work)
+    assert context["project_root"] == str(work)
+    assert context["files"] == [
+        {
+            "section": "startup",
+            "scope": "user",
+            "type": "memory",
+            "path": str(claude_home / "CLAUDE.md"),
+            "requires_trust": False,
+            "path_globs": [],
+        }
+    ]
+    assert context["config"] == []
 
 
 def test_cli_build_uses_documented_home_environment(tmp_path, monkeypatch) -> None:

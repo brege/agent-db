@@ -14,3 +14,4 @@ dist/
 !prototype/new/dist/
 !prototype/new/dist/**
 prototype/orig/user/.git/
+tests/.home/

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
 
 from agent_db import __version__
 from agent_db import claude, codex
+from agent_db.display import format_loaded_context, loaded_context_data
+from agent_db.schema import Agent, claude_load_order, codex_load_order
 from agent_db.source import AgentSource
 
 
@@ -26,6 +29,26 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="read user config from this directory",
     )
+    parser.add_argument(
+        "--memory",
+        "-m",
+        dest="show_memory",
+        action="store_true",
+        help="show what Claude and Codex will load from current directory",
+    )
+    parser.add_argument(
+        "--agent",
+        "-a",
+        choices=["claude", "codex", "all"],
+        default="all",
+        help="agent to inspect with --memory",
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="emit --memory output as JSON",
+    )
 
     return parser
 
@@ -33,7 +56,48 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.json_output and not args.show_memory:
+        parser.error("--json requires --memory")
+    if args.agent != "all" and not args.show_memory:
+        parser.error("--agent requires --memory")
+
+    if args.show_memory:
+        return show_memory(args)
     return build_outputs(args)
+
+
+def show_memory(args: argparse.Namespace) -> int:
+    cwd = Path.cwd()
+
+    if args.agent == "all":
+        agents_to_show = [Agent.CLAUDE, Agent.CODEX]
+    else:
+        agents_to_show = [Agent(args.agent)]
+
+    contexts = []
+    for agent in agents_to_show:
+        if agent == Agent.CLAUDE:
+            ctx = claude_load_order(cwd, claude_home=claude_home().expanduser())
+        else:
+            ctx = codex_load_order(
+                cwd,
+                codex_home=codex_home().expanduser(),
+                agents_home=agents_home().expanduser(),
+            )
+        contexts.append(loaded_context_data(ctx))
+
+    output = {"contexts": contexts}
+    if args.json_output:
+        print(json.dumps(output, indent=2))
+        return 0
+
+    for index, context in enumerate(contexts):
+        if index:
+            print()
+        print(format_loaded_context(context))
+
+    return 0
 
 
 def build_outputs(args: argparse.Namespace) -> int:
@@ -80,6 +144,9 @@ def codex_home() -> Path:
 
 
 def agents_home() -> Path:
+    value = os.environ.get("AGENTS_HOME")
+    if value:
+        return Path(value)
     return Path("~/.agents")
 
 

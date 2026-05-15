@@ -5,7 +5,14 @@ from pathlib import Path
 from typing import Any
 
 from agent_db import files
-from agent_db.source import AgentSource, assemble_sections, merged_agents, merged_settings, merged_skills
+from agent_db.source import (
+    AgentSource,
+    assemble_sections,
+    merged_agents,
+    merged_settings,
+    merged_skills,
+    render_restrictions,
+)
 
 
 def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
@@ -14,6 +21,7 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
 
     written: list[Path] = []
     sections = assemble_sections(source)
+    settings_data = merged_settings(source)
 
     rules_dir = home / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
@@ -22,12 +30,18 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
         if files.write_text(path, section.body):
             written.append(path)
 
+    permissions = render_restrictions(settings_data)
+    if permissions:
+        path = rules_dir / "permissions.md"
+        if files.write_text(path, permissions + "\n"):
+            written.append(path)
+
     claude_md = home / "CLAUDE.md"
-    if files.write_text(claude_md, render_claude_md(sections)):
+    if files.write_text(claude_md, render_claude_md(sections, include_permissions=bool(permissions))):
         written.append(claude_md)
 
     settings = home / "settings.json"
-    if files.write_text(settings, render_settings(merged_settings(source))):
+    if files.write_text(settings, render_settings(settings_data)):
         written.append(settings)
 
     written.extend(copy_assets(merged_skills(source), home / "skills"))
@@ -35,10 +49,12 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
     return written
 
 
-def render_claude_md(sections: Any) -> str:
+def render_claude_md(sections: Any, include_permissions: bool = False) -> str:
     blocks = ["# CLAUDE.md"]
     for section in sections:
         blocks.append(f"## {section.title}\n\n@rules/{section.key}.md")
+    if include_permissions:
+        blocks.append("## Permissions\n\n@rules/permissions.md")
     return "\n\n".join(blocks).strip() + "\n"
 
 

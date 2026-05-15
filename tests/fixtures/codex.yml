@@ -1,0 +1,123 @@
+scenarios:
+  user-only:
+    description: User ~/.codex/AGENTS.md only
+    home:
+      .codex:
+        AGENTS.md: |
+          # User AGENTS.md
+
+  override-precedence:
+    description: AGENTS.override.md takes precedence over AGENTS.md
+    home:
+      .codex:
+        AGENTS.md: |
+          # Regular AGENTS.md
+        AGENTS.override.md: |
+          # Override AGENTS.md
+
+  layered-hierarchy:
+    description: AGENTS.md at multiple hierarchy levels
+    home:
+      .codex:
+        AGENTS.md: |
+          # User AGENTS.md
+    repo:
+      git: true
+      cwd: src
+      files:
+        AGENTS.md: |
+          # Root AGENTS.md
+        src:
+          AGENTS.md: |
+            # Src AGENTS.md
+
+  config-toml:
+    description: Codex config.toml with permissions
+    home:
+      .codex:
+        AGENTS.md: |
+          # User
+        config.toml: |
+          [permissions]
+          [permissions.agent_db]
+          filesystem = [
+            { paths = ["~/books/**"], access = "read" },
+          ]
+          command = [
+            { pattern = "npm *", action = "allow" },
+            { pattern = "sudo *", action = "deny" },
+          ]
+    repo:
+      git: true
+      cwd: src
+      files:
+        .codex:
+          config.toml: |
+            [permissions]
+            [permissions.agent_db]
+            filesystem = [
+              { paths = ["src/**"], access = "read" },
+            ]
+        src:
+          .codex:
+            config.toml: |
+              [permissions]
+              [permissions.agent_db]
+              filesystem = [
+                { paths = ["src/private/**"], access = "none" },
+              ]
+
+  with-rules:
+    description: .codex/rules/*.rules files
+    home:
+      .codex:
+        AGENTS.md: |
+          # User
+        rules:
+          commands.rules: |
+            prefix_rule("npm *", "allow")
+            prefix_rule("sudo *", "deny")
+    repo:
+      git: true
+      files:
+        .codex:
+          rules:
+            project.rules: |
+              prefix_rule("git *", "allow")
+
+  skills:
+    description: Skills in ~/.agents/skills and .agents/skills
+    home:
+      .codex:
+        AGENTS.md: |
+          # User
+      .agents:
+        skills:
+          user-skill:
+            SKILL.md: |
+              ---
+              name: user-skill
+              ---
+              # User skill
+    repo:
+      git: true
+      files:
+        .agents:
+          skills:
+            project-skill:
+              SKILL.md: |
+                ---
+                name: project-skill
+                ---
+                # Project skill
+
+  agents:
+    description: Codex subagents in ~/.codex/agents
+    home:
+      .codex:
+        AGENTS.md: |
+          # User
+        agents:
+          subagent.toml: |
+            [agent]
+            name = "subagent"

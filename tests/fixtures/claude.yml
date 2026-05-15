@@ -1,0 +1,144 @@
+scenarios:
+  user-only:
+    description: User ~/.claude/CLAUDE.md only, no project
+    home:
+      .claude:
+        CLAUDE.md: |
+          # User CLAUDE.md
+          @rules/code.md
+        rules:
+          code.md: |
+            # Code rules
+
+  layered-hierarchy:
+    description: Multiple CLAUDE.md layers from repo root to cwd
+    home:
+      .claude:
+        CLAUDE.md: |
+          # User CLAUDE.md
+        rules:
+          user.md: |
+            # User rules
+    repo:
+      git: true
+      cwd: src
+      files:
+        CLAUDE.md: |
+          # Root CLAUDE.md
+        CLAUDE.local.md: |
+          # Root local
+        src:
+          CLAUDE.md: |
+            # Src CLAUDE.md
+          CLAUDE.local.md: |
+            # Src local
+
+  path-scoped-rules:
+    description: Path-scoped rules (ON_READ_MATCH) alongside startup rules
+    home:
+      .claude:
+        CLAUDE.md: |
+          # User CLAUDE.md
+    repo:
+      git: true
+      files:
+        .claude:
+          rules:
+            startup.md: |
+              # Startup rule
+            typescript.md: |
+              ---
+              paths:
+                - src/**/*.ts
+              ---
+              # TypeScript rule
+            python.md: |
+              ---
+              paths:
+                - src/**/*.py
+              ---
+              # Python rule
+
+  with-imports:
+    description: "@ imports in CLAUDE.md"
+    home:
+      .claude:
+        CLAUDE.md: |
+          # User CLAUDE.md
+          @rules/code.md
+          @rules/docs.md
+        rules:
+          code.md: |
+            # Code
+          docs.md: |
+            # Docs
+
+  skills-and-agents:
+    description: Skills and agents directories
+    home:
+      .claude:
+        CLAUDE.md: |
+          # User
+        skills:
+          my-skill:
+            SKILL.md: |
+              ---
+              name: my-skill
+              ---
+              # Skill
+        agents:
+          my-agent.md: |
+            # Agent
+    repo:
+      git: true
+      files:
+        .claude:
+          skills:
+            project-skill:
+              SKILL.md: |
+                ---
+                name: project-skill
+                ---
+                # Project skill
+          agents:
+            project-agent.md: |
+              # Project agent
+
+  settings-json:
+    description: Claude settings.json with permissions
+    home:
+      .claude:
+        CLAUDE.md: |
+          # User
+        settings.json: |
+          {
+            "permissions": {
+              "allow": [
+                {"tool": "bash", "pattern": "npm *"},
+                {"tool": "read", "paths": ["~/books/**"]}
+              ],
+              "deny": [
+                {"tool": "bash", "pattern": "sudo *"}
+              ]
+            }
+          }
+    repo:
+      git: true
+      files:
+        .claude:
+          settings.json: |
+            {
+              "permissions": {
+                "allow": [
+                  {"tool": "edit", "paths": ["src/**"]}
+                ]
+              }
+            }
+          settings.local.json: |
+            {
+              "permissions": {
+                "deny": [
+                  {"tool": "bash", "pattern": "git add *"}
+                ]
+              }
+            }
