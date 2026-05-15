@@ -14,7 +14,7 @@ SLUG_PARTS = re.compile(r"[^a-z0-9]+")
 
 
 @dataclass(frozen=True)
-class Partial:
+class Instruction:
     key: str
     title: str
     override: bool
@@ -26,13 +26,13 @@ class Partial:
 class Section:
     key: str
     title: str
-    partials: tuple[Partial, ...]
+    instructions: tuple[Instruction, ...]
 
     @property
     def body(self) -> str:
         bodies = []
-        for index, partial in enumerate(self.partials):
-            body = partial.body.strip()
+        for index, instruction in enumerate(self.instructions):
+            body = instruction.body.strip()
             if index > 0:
                 body = drop_matching_h1(body, self.key)
             if body:
@@ -57,7 +57,7 @@ class AssetDir:
 class SourceLayer:
     name: str
     path: Path
-    partials: tuple[Partial, ...]
+    instructions: tuple[Instruction, ...]
     settings: tuple[SettingsDoc, ...]
     skills: tuple[AssetDir, ...]
     agents: tuple[AssetDir, ...]
@@ -103,24 +103,24 @@ def load_layer(name: str, path: Path) -> SourceLayer:
     return SourceLayer(
         name=name,
         path=path,
-        partials=load_partials(path / "partials"),
+        instructions=load_instructions(path / "instructions"),
         settings=load_settings(path),
         skills=load_asset_dirs(path / "skills"),
         agents=load_asset_dirs(path / "agents"),
     )
 
 
-def load_partials(path: Path) -> tuple[Partial, ...]:
+def load_instructions(path: Path) -> tuple[Instruction, ...]:
     if not path.is_dir():
         return ()
-    return tuple(parse_partial(item) for item in sorted(path.glob("*.md")))
+    return tuple(parse_instruction(item) for item in sorted(path.glob("*.md")))
 
 
-def parse_partial(path: Path) -> Partial:
+def parse_instruction(path: Path) -> Instruction:
     raw = path.read_text(encoding="utf-8")
     frontmatter, body = split_frontmatter(raw)
-    title = partial_title(path, body, frontmatter)
-    return Partial(
+    title = instruction_title(path, body, frontmatter)
+    return Instruction(
         key=slug(title),
         title=title,
         override=bool(frontmatter.get("override", False)),
@@ -143,7 +143,7 @@ def split_frontmatter(raw: str) -> tuple[dict[str, Any], str]:
     return {}, raw
 
 
-def partial_title(path: Path, body: str, frontmatter: dict[str, Any]) -> str:
+def instruction_title(path: Path, body: str, frontmatter: dict[str, Any]) -> str:
     title = frontmatter.get("title")
     if isinstance(title, str) and title.strip():
         return title.strip()
@@ -211,15 +211,19 @@ def load_asset_dirs(path: Path) -> tuple[AssetDir, ...]:
 def assemble_sections(source: AgentSource) -> tuple[Section, ...]:
     sections: dict[str, Section] = {}
     for layer in source.layers:
-        for partial in layer.partials:
-            existing = sections.get(partial.key)
-            if existing is None or partial.override:
-                sections[partial.key] = Section(partial.key, partial.title, (partial,))
+        for instruction in layer.instructions:
+            existing = sections.get(instruction.key)
+            if existing is None or instruction.override:
+                sections[instruction.key] = Section(
+                    instruction.key,
+                    instruction.title,
+                    (instruction,),
+                )
             else:
-                sections[partial.key] = Section(
+                sections[instruction.key] = Section(
                     existing.key,
                     existing.title,
-                    (*existing.partials, partial),
+                    (*existing.instructions, instruction),
                 )
     return tuple(sections.values())
 

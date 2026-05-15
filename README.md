@@ -54,7 +54,7 @@ defaults/
 The source tree accepts:
 
 ```text
-partials/*.md
+instructions/*.md
 settings.yaml
 settings/*.yaml
 skills/*/SKILL.md

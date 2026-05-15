@@ -29,12 +29,12 @@ from agent_db.schema import (
 from agent_db.source import AgentSource, assemble_sections
 
 
-def test_partials_use_title_filename_h1_order_and_default_append(tmp_path) -> None:
+def test_instructions_use_title_filename_h1_order_and_default_append(tmp_path) -> None:
     source_root = tmp_path / "source"
-    (source_root / "dist" / "partials").mkdir(parents=True)
-    (source_root / "user" / "partials").mkdir(parents=True)
+    (source_root / "dist" / "instructions").mkdir(parents=True)
+    (source_root / "user" / "instructions").mkdir(parents=True)
 
-    (source_root / "dist" / "partials" / "docs.md").write_text(
+    (source_root / "dist" / "instructions" / "docs.md").write_text(
         dedent(
             """\
             ---
@@ -49,7 +49,7 @@ def test_partials_use_title_filename_h1_order_and_default_append(tmp_path) -> No
         ),
         encoding="utf-8",
     )
-    (source_root / "user" / "partials" / "docs.md").write_text(
+    (source_root / "user" / "instructions" / "docs.md").write_text(
         dedent(
             """\
             ---
@@ -63,7 +63,7 @@ def test_partials_use_title_filename_h1_order_and_default_append(tmp_path) -> No
         ),
         encoding="utf-8",
     )
-    (source_root / "user" / "partials" / "special-case.md").write_text(
+    (source_root / "user" / "instructions" / "special-case.md").write_text(
         "# Ignored H1\n\nbody\n",
         encoding="utf-8",
     )
@@ -79,12 +79,12 @@ def test_partials_use_title_filename_h1_order_and_default_append(tmp_path) -> No
 
 def test_writes_claude_and_codex_globals(tmp_path) -> None:
     source_root = tmp_path / "source"
-    (source_root / "dist" / "partials").mkdir(parents=True)
+    (source_root / "dist" / "instructions").mkdir(parents=True)
     (source_root / "dist" / "settings").mkdir(parents=True)
-    (source_root / "user" / "partials").mkdir(parents=True)
+    (source_root / "user" / "instructions").mkdir(parents=True)
     (source_root / "user" / "skills" / "comment-remover").mkdir(parents=True)
 
-    (source_root / "dist" / "partials" / "code.md").write_text(
+    (source_root / "dist" / "instructions" / "code.md").write_text(
         dedent(
             """\
             ---
@@ -99,7 +99,7 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
         ),
         encoding="utf-8",
     )
-    (source_root / "user" / "partials" / "code.md").write_text(
+    (source_root / "user" / "instructions" / "code.md").write_text(
         "# Code\n\nuser code\n",
         encoding="utf-8",
     )
@@ -411,10 +411,10 @@ def test_memory_output_shortens_home_paths() -> None:
 def test_cli_build_uses_documented_home_environment(tmp_path, monkeypatch) -> None:
     defaults_root = tmp_path / "defaults"
     user_root = tmp_path / "user"
-    (defaults_root / "partials").mkdir(parents=True)
+    (defaults_root / "instructions").mkdir(parents=True)
     (defaults_root / "settings").mkdir(parents=True)
     (user_root / "skills" / "comment-remover").mkdir(parents=True)
-    (defaults_root / "partials" / "code.md").write_text(
+    (defaults_root / "instructions" / "code.md").write_text(
         "# Code\n\nrules\n",
         encoding="utf-8",
     )

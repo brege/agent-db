@@ -6,12 +6,12 @@
 - [x] Load user config from `AGENT_DB_HOME`.
 - [x] Default Linux user config to `~/.config/agent-db`.
 - [x] Support `--from` for staging and migration.
-- [x] Load `partials/*.md`.
+- [x] Load `instructions/*.md`.
 - [x] Parse markdown frontmatter.
-- [x] Use `title`, then filename, then first H1 as the partial title.
+- [x] Use `title`, then filename, then first H1 as the instruction title.
 - [x] Treat missing `override` as `false`.
-- [x] Merge partials by key with append or override behavior.
-- [x] Drop duplicate matching H1 headings when appending a partial.
+- [x] Merge instructions by key with append or override behavior.
+- [x] Drop duplicate matching H1 headings when appending an instruction.
 - [x] Load `settings.yaml` and `settings/*.yaml`.
 - [x] Support YAML `append` and `override`.
 - [x] Load `skills/*` and `agents/*`.
@@ -35,7 +35,7 @@
 
 - [x] Emit `AGENTS.md`.
 - [x] Render `AGENTS.md` with one top-level `# AGENTS.md`.
-- [x] Demote partial headings in Codex output.
+- [x] Demote instruction headings in Codex output.
 - [x] Emit `config.toml`.
 - [x] Map path allow rules to `read` or `write`.
 - [x] Map path deny rules to `none`.
@@ -73,7 +73,7 @@
 
 ## Tests
 
-- [x] Test partial title resolution and default append behavior.
+- [x] Test instruction title resolution and default append behavior.
 - [x] Test Claude and Codex global output generation.
 - [x] Test idempotent writes.
 - [x] Test Codex heredoc patterns are not emitted as fake prefix rules.
