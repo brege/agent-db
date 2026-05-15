@@ -393,6 +393,22 @@ def test_memory_text_output_uses_rich_without_rule_spam(tmp_path, monkeypatch, c
     assert "Permission Rules" not in output
 
 
+def test_cli_refresh_uses_docs_refresh(monkeypatch) -> None:
+    from tools.docs import refresh
+
+    calls = []
+
+    def fake_refresh() -> int:
+        calls.append("refresh")
+        return 17
+
+    monkeypatch.setattr(refresh, "main", fake_refresh)
+
+    assert cli.main(["--refresh"]) == 17
+    assert cli.main(["-r"]) == 17
+    assert calls == ["refresh", "refresh"]
+
+
 def test_memory_output_shortens_home_paths() -> None:
     project = Path.home() / "code" / "project"
     output = format_loaded_context({

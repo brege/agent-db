@@ -7,13 +7,13 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
-from scrape.fetch import fetch_text
+from .fetch import fetch_text
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 BASE_URL = "https://code.claude.com"
 DOCS_PREFIX = "/docs/en/"
-OUTPUT_ROOT = ROOT / "refs" / "claude"
+OUTPUT_ROOT = ROOT / "docs" / "reference" / "claude"
 DISCOVERY_SEED = "https://code.claude.com/docs/en/glossary"
 
 

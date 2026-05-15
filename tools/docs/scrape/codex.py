@@ -6,15 +6,15 @@ from urllib.parse import urlparse
 
 from bs4 import BeautifulSoup
 
-from scrape.fetch import fetch_text
+from .fetch import fetch_text
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 BASE_URL = "https://developers.openai.com"
 DOCS_PREFIX = "/codex/"
 DISCOVERY_URL = f"{BASE_URL}/codex"
 NAV_GROUP = "Configuration"
-OUTPUT_ROOT = ROOT / "refs" / "codex"
+OUTPUT_ROOT = ROOT / "docs" / "reference" / "codex"
 AGENTS_MD_HEADINGS = [
     "How Codex discovers guidance",
     "Create global guidance",

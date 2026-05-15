@@ -51,6 +51,13 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="emit --memory output as JSON",
     )
+    parser.add_argument(
+        "--refresh",
+        "-r",
+        dest="refresh_docs",
+        action="store_true",
+        help="refresh local reference snapshots",
+    )
 
     return parser
 
@@ -59,6 +66,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
+    if args.refresh_docs:
+        if args.show_memory:
+            parser.error("--refresh cannot be used with --memory")
+        if args.user_root is not None:
+            parser.error("--from cannot be used with --refresh")
+        if args.json_output:
+            parser.error("--json requires --memory")
+        if args.agent != "all":
+            parser.error("--agent requires --memory")
+        return refresh_docs()
     if args.json_output and not args.show_memory:
         parser.error("--json requires --memory")
     if args.agent != "all" and not args.show_memory:
@@ -111,6 +128,15 @@ def build_outputs(args: argparse.Namespace) -> int:
         print(path)
 
     return 0
+
+
+def refresh_docs() -> int:
+    root = str(Path(__file__).resolve().parents[2])
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from tools.docs import refresh
+
+    return refresh.main()
 
 
 def defaults_root() -> Path:

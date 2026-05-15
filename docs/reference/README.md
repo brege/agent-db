@@ -1,16 +1,16 @@
 # Reference Index
 
-`refs/` stores local snapshots of Claude, Codex, and AGENTS.md documentation. Generated snapshots are ignored by git. This index is tracked.
+`docs/reference/` stores local snapshots of Claude, Codex, and AGENTS.md documentation. Generated snapshots are ignored by git. This index is tracked.
 
 Refresh snapshots:
 
 ```bash
-python docs.py
+agent-db --refresh
 ```
 
 ## User-Facing Behavior
 
-Claude:
+### Claude
 
 - [memory.md] - `CLAUDE.md`, `@path` imports, user instructions, project instructions, `.claude/rules/`, and auto memory
 - [claude-directory.md] - global and project `.claude/` files
@@ -21,7 +21,7 @@ Claude:
 - [sub-agents.md] - `~/.claude/agents/*.md`, project agents, frontmatter, tools, model, and memory
 - [commands.md] - slash commands and their overlap with skills
 
-Codex:
+### Codex
 
 - [agents-md.md] - global `AGENTS.md`, project `AGENTS.md`, `AGENTS.override.md`, fallback filenames, and size limits
 - [config-basic.md] - `~/.codex/config.toml`, project `.codex/config.toml`, precedence, profiles, and permissions
@@ -29,12 +29,12 @@ Codex:
 - [config-reference.md] - config key reference, including permissions and filesystem profile keys
 - [config-sample.md] - example config with permissions and `glob_scan_max_depth`
 - [rules.md] - `.rules` files, `prefix_rule`, and command decisions
-- [codex/skills.md] - `~/.agents/skills`, repo skills, user skills, and skill metadata
+- [codex/skills.md] - `~/.codex/skills`, repo skills, user skills, and skill metadata
 - [subagents.md] - `~/.codex/agents/*.toml`, project agents, and agent config keys
 
 ## Maintainer References
 
-Claude:
+### Claude
 
 - [hooks.md] - hook event reference
 - [hooks-guide.md] - hook examples and settings integration
@@ -45,7 +45,7 @@ Claude:
 - [server-managed-settings.md] - managed settings
 - [debug-your-config.md] - troubleshooting generated config
 
-Codex:
+### Codex
 
 - [codex/hooks.md] - Codex hook events and config locations
 - [codex/mcp.md] - MCP config in `config.toml`

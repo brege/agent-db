@@ -4,9 +4,9 @@ import subprocess
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 URL = "https://github.com/agentsmd/agents.md"
-TARGET = ROOT / "refs" / "agents.md"
+TARGET = ROOT / "docs" / "reference" / "agents.md"
 
 
 def refresh() -> Path:
@@ -59,4 +59,3 @@ def resolve_remote_head() -> str:
         "--short",
     ])
     return result.stdout.strip() or "origin/main"
-

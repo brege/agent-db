@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from scrape import agent_md, claude, codex
+import sys
+from pathlib import Path
+
+if __package__:
+    from .scrape import agent_md, claude, codex
+else:
+    root = str(Path(__file__).resolve().parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from scrape import agent_md, claude, codex
 
 
 def main() -> int:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scrape import codex
+from tools.docs.scrape import codex
 
 
 def test_codex_markdown_endpoint_matches_copy_button() -> None:

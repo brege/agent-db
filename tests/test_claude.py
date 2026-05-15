@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from scrape import claude
+from tools.docs.scrape import claude
 
 
 def test_strips_claude_docs_index() -> None:

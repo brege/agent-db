@@ -1,6 +1,6 @@
-/refs/*
-!/refs/.gitignore
-!/refs/README.md
+/docs/reference/*
+!/docs/reference/.gitignore
+!/docs/reference/README.md
 __pycache__/
 .pytest_cache/
 *.py[cod]

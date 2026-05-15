@@ -19,13 +19,7 @@ agent-db
 
 The default run writes changed files and prints only the paths it changed. A no-op run prints nothing.
 
-Use `--from` to build from another authoring tree:
-
-```bash
-agent-db --from /path/to/agent-db-user
-```
-
-Inspect what Claude or Codex would load from the current directory:
+Inspect what Claude or Codex will load from the current directory:
 
 ```bash
 agent-db -m
@@ -84,12 +78,11 @@ Settings live in `settings.yaml` or `settings/*.yaml`. Use `append` for merged s
 
 ## References
 
-Curated doc links live in [refs/README.md](refs/README.md). Generated reference snapshots under `refs/claude/`, `refs/codex/`, and `refs/agents.md/` are ignored by git.
+Curated doc links live in [docs/reference/README.md](docs/reference/README.md). Generated reference snapshots under `docs/reference/claude/`, `docs/reference/codex/`, and `docs/reference/agents.md/` are ignored by git.
 
-Refresh local snapshots:
-
+Refresh local snapshots with 
 ```bash
-python docs.py
+agent-db -r
 ```
 
-These docs can help you build cross-model skills and agents.
+<a href="#readme"><img src="docs/img/badge.svg" width="200" align="right" /></a>

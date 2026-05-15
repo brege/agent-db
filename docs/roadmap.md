@@ -63,8 +63,8 @@
 - [x] Fetch Claude markdown docs.
 - [x] Fetch Codex markdown docs.
 - [x] Use Beautiful Soup for sidebar discovery only.
-- [x] Keep generated refs ignored by git.
-- [x] Track `refs/README.md` as the reference index.
+- [x] Keep generated reference snapshots ignored by git.
+- [x] Track `docs/reference/README.md` as the reference index.
 - [ ] Update the reference index when target docs change.
 
 ## Tests
