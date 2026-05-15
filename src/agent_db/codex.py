@@ -185,6 +185,8 @@ def codex_path_level(permissions: list[str]) -> str:
 
 
 def codex_path(path: str) -> str:
+    if path.endswith("/**"):
+        path = path[:-3]
     if path.startswith("~/"):
         return str(Path(path).expanduser())
     return path

@@ -605,6 +605,10 @@ def test_codex_config_write_backs_up_existing_file(tmp_path) -> None:
     assert backups[0].read_text(encoding="utf-8") == 'model = "gpt-5.5"\n'
 
 
+def test_codex_path_normalizes_terminal_recursive_glob_to_root() -> None:
+    assert codex.codex_path("~/code/**") == str(Path.home() / "code")
+    assert codex.codex_path("/tmp/project/**") == "/tmp/project"
+
 def test_codex_skips_heredoc_patterns_that_are_not_argv_prefixes() -> None:
     rules = codex.render_rules(
         {
