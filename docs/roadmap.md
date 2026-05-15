@@ -42,7 +42,7 @@
 - [x] Emit `rules/*.rules` from command policy.
 - [x] Map command allow, ask, and deny to `allow`, `prompt`, and `forbidden`.
 - [x] Skip heredoc and here-string command patterns in `.rules` output.
-- [x] Copy skills to `~/.agents/skills/*`.
+- [x] Copy skills to `skills/*`.
 - [x] Convert simple agent markdown to `agents/*.toml`.
 - [x] Preserve unrelated `config.toml` sections when rewriting Codex config.
 - [ ] Report command patterns that cannot be represented as Codex prefix rules.
@@ -55,7 +55,7 @@
 - [x] Stay quiet on no-op runs.
 - [x] Resolve Claude output from `CLAUDE_CONFIG_DIR`, defaulting to `~/.claude`.
 - [x] Resolve Codex output from `CODEX_HOME`, defaulting to `~/.codex`.
-- [x] Resolve Codex skills output from `~/.agents`.
+- [x] Resolve Codex skills output from `CODEX_HOME`.
 - [x] Support staged builds through environment variables.
 
 ## References

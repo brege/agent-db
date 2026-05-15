@@ -85,7 +85,6 @@ def show_memory(args: argparse.Namespace) -> int:
             ctx = codex_load_order(
                 cwd,
                 codex_home=codex_home().expanduser(),
-                agents_home=agents_home().expanduser(),
             )
         contexts.append(loaded_context_model(ctx))
 
@@ -106,7 +105,7 @@ def show_memory(args: argparse.Namespace) -> int:
 def build_outputs(args: argparse.Namespace) -> int:
     source = AgentSource.from_roots(defaults_root(), args.user_root or agent_db_home())
     written = claude.write_global(source, claude_home())
-    written.extend(codex.write_global(source, codex_home(), agents_home()))
+    written.extend(codex.write_global(source, codex_home()))
 
     for path in written:
         print(path)
@@ -144,13 +143,6 @@ def claude_home() -> Path:
 
 def codex_home() -> Path:
     return Path(os.environ.get("CODEX_HOME", "~/.codex"))
-
-
-def agents_home() -> Path:
-    value = os.environ.get("AGENTS_HOME")
-    if value:
-        return Path(value)
-    return Path("~/.agents")
 
 
 if __name__ == "__main__":

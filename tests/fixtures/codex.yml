@@ -86,12 +86,11 @@ scenarios:
               prefix_rule("git *", "allow")
 
   skills:
-    description: Skills in ~/.agents/skills and .agents/skills
+    description: Skills in ~/.codex/skills and .agents/skills
     home:
       .codex:
         AGENTS.md: |
           # User
-      .agents:
         skills:
           user-skill:
             SKILL.md: |

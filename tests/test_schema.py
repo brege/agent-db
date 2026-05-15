@@ -123,7 +123,6 @@ def test_codex_user_agents_md(fixture_paths):
     ctx = codex_load_order(
         cwd,
         codex_home=paths["home"] / ".codex",
-        agents_home=paths["home"] / ".agents",
     )
 
     user_memory = [s for s in ctx.sources if s.scope == Scope.USER and s.source_type == SourceType.MEMORY]
@@ -137,7 +136,6 @@ def test_codex_prefers_override_md(fixture_paths):
     ctx = codex_load_order(
         cwd,
         codex_home=paths["home"] / ".codex",
-        agents_home=paths["home"] / ".agents",
     )
 
     user_sources = [s for s in ctx.sources if s.scope == Scope.USER]
@@ -154,7 +152,6 @@ def test_codex_layered_agents_md(fixture_paths):
     ctx = codex_load_order(
         cwd,
         codex_home=paths["home"] / ".codex",
-        agents_home=paths["home"] / ".agents",
     )
 
     project_sources = [
@@ -171,7 +168,6 @@ def test_codex_config_toml(fixture_paths):
     ctx = codex_load_order(
         cwd,
         codex_home=paths["home"] / ".codex",
-        agents_home=paths["home"] / ".agents",
     )
 
     assert len(ctx.settings_sources) >= 1
@@ -194,7 +190,6 @@ def test_codex_rules_from_rules_file(fixture_paths):
     ctx = codex_load_order(
         cwd,
         codex_home=paths["home"] / ".codex",
-        agents_home=paths["home"] / ".agents",
     )
 
     rules = [s for s in ctx.rules_sources if s.rule_type == "command_prefix"]

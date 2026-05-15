@@ -37,7 +37,7 @@ AGENT_DB_TABLE = re.compile(
 )
 
 
-def write_global(source: AgentSource, codex_home: Path, agents_home: Path) -> list[Path]:
+def write_global(source: AgentSource, codex_home: Path) -> list[Path]:
     home = codex_home.expanduser().resolve()
     home.mkdir(parents=True, exist_ok=True)
 
@@ -51,7 +51,7 @@ def write_global(source: AgentSource, codex_home: Path, agents_home: Path) -> li
         written.append(config)
 
     written.extend(write_rules(source, home / "rules"))
-    written.extend(copy_assets(merged_skills(source), agents_home.expanduser().resolve() / "skills"))
+    written.extend(copy_assets(merged_skills(source), home / "skills"))
     written.extend(write_agents(merged_agents(source), home / "agents"))
     return written
 

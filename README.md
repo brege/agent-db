@@ -1,19 +1,14 @@
-
-
 # agent-db
 
 Build personal Claude Code and Codex configuration from one authoring tree.
 
+`agent-db` reads reusable instructions, settings, skills, and agent definitions, then writes the files each tool expects in its own home directory. It is meant for personal config that should be repeatable without hand-editing multiple agent-specific files.
+
 ## Install
 
 ```bash
+git clone git@github.com:brege/agent-db.git
 uv tool install -e .
-```
-
-After package metadata or entry point changes:
-
-```bash
-uv tool install --force -e .
 ```
 
 ## Run
@@ -22,65 +17,70 @@ uv tool install --force -e .
 agent-db
 ```
 
-`agent-db` prints changed files. A no-op run prints nothing.
+The default run writes changed files and prints only the paths it changed. A no-op run prints nothing.
 
-Use another authoring tree for staging or migration:
+Use `--from` to build from another authoring tree:
 
 ```bash
-agent-db --from prototype/new/user
+agent-db --from /path/to/agent-db-user
+```
+
+Inspect what Claude or Codex would load from the current directory:
+
+```bash
+agent-db -m
+agent-db -m -a claude
+agent-db -m -a codex
 ```
 
 ## Inputs
 
-User config:
+`agent-db` reads built-in defaults from `defaults/` and user config from `~/.config/agent-db` (on Linux).
+
+Currently supported:
 
 ```text
-${AGENT_DB_HOME:-<platform config dir>/agent-db}
-```
-
-On Linux this is:
-
-```text
-~/.config/agent-db
-```
-
-Project defaults:
-
-```text
-defaults/
-```
-
-The source tree accepts:
-
-```text
-instructions/*.md
-settings.yaml
-settings/*.yaml
-skills/*/SKILL.md
-agents/*
+instructions/*.md           adds to AGENTS.md or CLAUDE.md
+settings.yaml               becomes settings.json or config.toml
+settings/*.yaml             adds to settings.json or config.toml
+skills/*/SKILL.md           adds to ~/.{claude,codex}/skills
+agents/*                    adds to ~/.{claude,codex}/agents
 ```
 
 ## Outputs
 
-Claude:
+Claude output goes to `~/.claude` unless `CLAUDE_CONFIG_DIR` is set:
 
 ```text
-${CLAUDE_CONFIG_DIR:-~/.claude}/CLAUDE.md
-${CLAUDE_CONFIG_DIR:-~/.claude}/settings.json
-${CLAUDE_CONFIG_DIR:-~/.claude}/rules/*.md
-${CLAUDE_CONFIG_DIR:-~/.claude}/skills/*/SKILL.md
-${CLAUDE_CONFIG_DIR:-~/.claude}/agents/*.md
+CLAUDE.md
+settings.json
+rules/*.md
+skills/*/SKILL.md
+agents/*.md
 ```
 
-Codex:
+Codex output goes to `~/.codex` unless `CODEX_HOME` is set:
 
 ```text
-${CODEX_HOME:-~/.codex}/AGENTS.md
-${CODEX_HOME:-~/.codex}/config.toml
-${CODEX_HOME:-~/.codex}/rules/*.rules
-${CODEX_HOME:-~/.codex}/agents/*.toml
-~/.agents/skills/*/SKILL.md
+AGENTS.md
+config.toml
+rules/*.rules
+skills/*/SKILL.md
+agents/*.toml
 ```
+
+## Authoring
+
+Markdown in `instructions/` becomes shared guidance for both tools. Files are merged by title key. A file can set frontmatter:
+
+```yaml
+---
+title: Code
+override: true
+---
+```
+
+Settings live in `settings.yaml` or `settings/*.yaml`. Use `append` for merged settings and `override` for replacement values.
 
 ## References
 
@@ -92,4 +92,4 @@ Refresh local snapshots:
 python docs.py
 ```
 
-<a href="#readme"><img src="docs/img/badge.svg" width="250" align="right" /></a>
+These docs can help you build cross-model skills and agents.

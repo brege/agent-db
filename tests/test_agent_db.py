@@ -150,10 +150,9 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
     source = AgentSource.from_root(source_root)
     claude_home = tmp_path / "claude"
     codex_home = tmp_path / "codex"
-    agents_home = tmp_path / "agents"
 
     claude.write_global(source, claude_home)
-    codex.write_global(source, codex_home, agents_home)
+    codex.write_global(source, codex_home)
 
     claude_md = (claude_home / "CLAUDE.md").read_text(encoding="utf-8")
     assert claude_md.startswith("# CLAUDE.md\n\n## Code\n\n@rules/code.md\n")
@@ -183,10 +182,10 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
     assert '["sudo"]' in (codex_home / "rules" / "commands.rules").read_text(encoding="utf-8")
     assert '["git", "add"]' in (codex_home / "rules" / "commands.rules").read_text(encoding="utf-8")
     assert (claude_home / "skills" / "comment-remover" / "SKILL.md").is_file()
-    assert (agents_home / "skills" / "comment-remover" / "SKILL.md").is_file()
+    assert (codex_home / "skills" / "comment-remover" / "SKILL.md").is_file()
 
     assert claude.write_global(source, claude_home) == []
-    assert codex.write_global(source, codex_home, agents_home) == []
+    assert codex.write_global(source, codex_home) == []
 
 
 def test_memory_output_lists_files_without_permission_rule_spam(tmp_path) -> None:
@@ -462,7 +461,7 @@ def test_cli_build_uses_documented_home_environment(tmp_path, monkeypatch) -> No
     assert (claude_home / "settings.json").is_file()
     assert (codex_home / "AGENTS.md").is_file()
     assert (codex_home / "config.toml").is_file()
-    assert (home / ".agents" / "skills" / "comment-remover" / "SKILL.md").is_file()
+    assert (codex_home / "skills" / "comment-remover" / "SKILL.md").is_file()
 
 
 def test_agent_db_home_uses_platform_config_dir(tmp_path, monkeypatch) -> None:

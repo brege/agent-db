@@ -433,7 +433,6 @@ def codex_load_order(
     cwd: Path,
     *,
     codex_home: Path | None = None,
-    agents_home: Path | None = None,
 ) -> LoadedContext:
     """Compute what Codex actually loads from a given cwd.
 
@@ -442,7 +441,7 @@ def codex_load_order(
     2. ./AGENTS.md walking from project root to cwd (closest wins)
     3. ~/.codex/config.toml
     4. .codex/config.toml walking from project root to cwd (closest wins, trusted only)
-    5. ~/.agents/skills/
+    5. ~/.codex/skills/
     6. ~/.codex/agents/*.toml
     """
     sources: list[InstructionSource] = []
@@ -451,10 +450,6 @@ def codex_load_order(
     _codex_home = (
         codex_home
         or Path(os.environ.get("CODEX_HOME", "~/.codex")).expanduser()
-    )
-    _agents_home = (
-        agents_home
-        or Path(os.environ.get("AGENTS_HOME", "~/.agents")).expanduser()
     )
 
     codex_home = _codex_home
@@ -549,7 +544,7 @@ def codex_load_order(
                     description=f"Project config.toml at {project_config.relative_to(git_root)}",
                 ))
 
-    user_skills = _agents_home / "skills"
+    user_skills = _codex_home / "skills"
     if user_skills.is_dir():
         sources.append(InstructionSource(
             agent=Agent.CODEX,
@@ -565,7 +560,7 @@ def codex_load_order(
 
     if git_root:
         project_skills = git_root / ".agents" / "skills"
-        if project_skills.is_dir() and project_skills != user_skills:
+        if project_skills.is_dir():
             sources.append(InstructionSource(
                 agent=Agent.CODEX,
                 source_type=SourceType.SKILLS,
