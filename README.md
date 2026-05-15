@@ -1,3 +1,6 @@
+<a href="#readme"><img src="docs/img/badge.png" width="100%" /></a>
+
+
 # agent-db
 
 Build personal Claude Code and Codex configuration from one authoring tree.
