@@ -4,12 +4,13 @@ from io import StringIO
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from agent_db.schema import LoadTiming, LoadedContext, Scope, SourceType
+from agent_db.schema import Agent, LoadTiming, LoadedContext, Scope, SourceType
 
 
 TIMING_ORDER = [
@@ -50,39 +51,83 @@ SCOPE_WIDTH = 15
 KIND_WIDTH = 15
 
 
-def loaded_context_data(ctx: LoadedContext) -> dict[str, Any]:
-    return {
-        "agent": ctx.agent.value,
-        "cwd": str(ctx.cwd),
-        "project_root": str(ctx.project_root) if ctx.project_root else None,
-        "files": [
-            {
-                "section": source.load_timing.value,
-                "scope": source.scope.value,
-                "type": source.source_type.value,
-                "path": str(source.output_path),
-                "requires_trust": source.requires_trust,
-                "path_globs": list(source.path_globs or ()),
-            }
+class MemoryFile(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    section: LoadTiming
+    scope: Scope
+    type: SourceType
+    path: str
+    requires_trust: bool
+    path_globs: tuple[str, ...] = ()
+
+
+class MemoryConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    scope: Scope
+    format: str
+    path: str
+    requires_trust: bool
+
+
+class MemoryContext(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    agent: Agent
+    cwd: str
+    project_root: str | None
+    files: tuple[MemoryFile, ...] = ()
+    config: tuple[MemoryConfig, ...] = ()
+
+
+class MemoryPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    contexts: tuple[MemoryContext, ...]
+
+
+def loaded_context_model(ctx: LoadedContext) -> MemoryContext:
+    return MemoryContext(
+        agent=ctx.agent,
+        cwd=str(ctx.cwd),
+        project_root=str(ctx.project_root) if ctx.project_root else None,
+        files=tuple(
+            MemoryFile(
+                section=source.load_timing,
+                scope=source.scope,
+                type=source.source_type,
+                path=str(source.output_path),
+                requires_trust=source.requires_trust,
+                path_globs=tuple(source.path_globs or ()),
+            )
             for source in ctx.sources
-        ],
-        "config": [
-            {
-                "scope": setting.scope.value,
-                "format": setting.format,
-                "path": str(setting.source_path),
-                "requires_trust": setting.requires_trust,
-            }
+        ),
+        config=tuple(
+            MemoryConfig(
+                scope=setting.scope,
+                format=setting.format,
+                path=str(setting.source_path),
+                requires_trust=setting.requires_trust,
+            )
             for setting in ctx.settings_sources
-        ],
-    }
+        ),
+    )
 
 
-def print_loaded_context(console: Console, data: dict[str, Any]) -> None:
+def loaded_context_data(ctx: LoadedContext) -> dict[str, Any]:
+    return loaded_context_model(ctx).model_dump(mode="json")
+
+
+def print_loaded_context(console: Console, data: MemoryContext | dict[str, Any]) -> None:
     console.print(render_loaded_context(data))
 
 
-def format_loaded_context(data: dict[str, Any], *, width: int = 120) -> str:
+def format_loaded_context(
+    data: MemoryContext | dict[str, Any],
+    *,
+    width: int = 120,
+) -> str:
     output = StringIO()
     console = Console(
         file=output,
@@ -94,7 +139,8 @@ def format_loaded_context(data: dict[str, Any], *, width: int = 120) -> str:
     return output.getvalue().rstrip("\n")
 
 
-def render_loaded_context(data: dict[str, Any]) -> Panel:
+def render_loaded_context(data: MemoryContext | dict[str, Any]) -> Panel:
+    data = context_data(data)
     title = Text.assemble((data["agent"].upper(), "bold"), " ", home_path(data["cwd"]))
     root = Text.assemble(
         ("root ", "dim"),
@@ -124,7 +170,18 @@ def render_loaded_context(data: dict[str, Any]) -> Panel:
     return Panel(Group(*parts), title=title)
 
 
-def source_table(items: list[dict[str, Any]], data: dict[str, Any], *, kind_key: str) -> Table:
+def context_data(data: MemoryContext | dict[str, Any]) -> dict[str, Any]:
+    if isinstance(data, MemoryContext):
+        return data.model_dump(mode="json")
+    return MemoryContext.model_validate(data).model_dump(mode="json")
+
+
+def source_table(
+    items: list[dict[str, Any]],
+    data: dict[str, Any],
+    *,
+    kind_key: str,
+) -> Table:
     table = Table.grid(padding=(0, 2), expand=True)
     table.add_column(width=SCOPE_WIDTH, no_wrap=True)
     table.add_column(width=KIND_WIDTH, no_wrap=True)

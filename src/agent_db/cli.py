@@ -10,7 +10,7 @@ from rich.console import Console
 
 from agent_db import __version__
 from agent_db import claude, codex
-from agent_db.display import loaded_context_data, print_loaded_context
+from agent_db.display import MemoryPayload, loaded_context_model, print_loaded_context
 from agent_db.schema import Agent, claude_load_order, codex_load_order
 from agent_db.source import AgentSource
 
@@ -87,11 +87,11 @@ def show_memory(args: argparse.Namespace) -> int:
                 codex_home=codex_home().expanduser(),
                 agents_home=agents_home().expanduser(),
             )
-        contexts.append(loaded_context_data(ctx))
+        contexts.append(loaded_context_model(ctx))
 
-    output = {"contexts": contexts}
+    output = MemoryPayload(contexts=tuple(contexts))
     if args.json_output:
-        print(json.dumps(output, indent=2))
+        print(json.dumps(output.model_dump(mode="json"), indent=2))
         return 0
 
     console = Console()

@@ -4,8 +4,18 @@ import json
 from pathlib import Path
 from textwrap import dedent
 
+import pytest
+from pydantic import ValidationError
+
 from agent_db import claude, cli, codex
-from agent_db.display import format_loaded_context, loaded_context_data
+from agent_db.display import (
+    MemoryContext,
+    MemoryFile,
+    MemoryPayload,
+    format_loaded_context,
+    loaded_context_data,
+    loaded_context_model,
+)
 from agent_db.schema import (
     Agent,
     InstructionSource,
@@ -274,6 +284,92 @@ def test_memory_json_output_uses_basic_data_structure(tmp_path, monkeypatch, cap
         }
     ]
     assert context["config"] == []
+
+
+def test_memory_models_preserve_json_shape(tmp_path) -> None:
+    claude_md = tmp_path / "CLAUDE.md"
+    settings = tmp_path / "settings.json"
+    ctx = LoadedContext(
+        agent=Agent.CLAUDE,
+        cwd=tmp_path,
+        project_root=tmp_path,
+        sources=(
+            InstructionSource(
+                agent=Agent.CLAUDE,
+                source_type=SourceType.MEMORY,
+                scope=Scope.PROJECT,
+                load_timing=LoadTiming.STARTUP,
+                output_path=claude_md,
+                layer_name="project",
+                source_path=claude_md,
+                path_globs=("src/**",),
+            ),
+        ),
+        settings_sources=(
+            SettingsSource(
+                agent=Agent.CLAUDE,
+                scope=Scope.LOCAL,
+                format="json",
+                output_path=settings,
+                layer_name="local",
+                source_path=settings,
+            ),
+        ),
+    )
+
+    payload = MemoryPayload(contexts=(loaded_context_model(ctx),))
+
+    assert payload.model_dump(mode="json") == {
+        "contexts": [
+            {
+                "agent": "claude",
+                "cwd": str(tmp_path),
+                "project_root": str(tmp_path),
+                "files": [
+                    {
+                        "section": "startup",
+                        "scope": "project",
+                        "type": "memory",
+                        "path": str(claude_md),
+                        "requires_trust": False,
+                        "path_globs": ["src/**"],
+                    }
+                ],
+                "config": [
+                    {
+                        "scope": "local",
+                        "format": "json",
+                        "path": str(settings),
+                        "requires_trust": False,
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def test_memory_models_reject_unknown_fields(tmp_path) -> None:
+    with pytest.raises(ValidationError):
+        MemoryContext.model_validate({
+            "agent": "claude",
+            "cwd": str(tmp_path),
+            "project_root": str(tmp_path),
+            "files": [],
+            "config": [],
+            "extra": True,
+        })
+
+
+def test_memory_models_reject_invalid_enum_values(tmp_path) -> None:
+    with pytest.raises(ValidationError):
+        MemoryFile.model_validate({
+            "section": "never",
+            "scope": "project",
+            "type": "memory",
+            "path": str(tmp_path / "CLAUDE.md"),
+            "requires_trust": False,
+            "path_globs": [],
+        })
 
 
 def test_memory_text_output_uses_rich_without_rule_spam(tmp_path, monkeypatch, capsys) -> None:
