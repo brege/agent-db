@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 
 from .fetch import fetch_text
 
-
 ROOT = Path(__file__).resolve().parents[3]
 BASE_URL = "https://developers.openai.com"
 DOCS_PREFIX = "/codex/"
@@ -75,7 +74,9 @@ def discover_pages_from_html(html: str, group_title: str = NAV_GROUP) -> list[Pa
 
     group = find_nav_group(nav, group_title)
     pages: dict[str, Page] = {}
-    for anchor in group.select('a[href^="/codex/"], a[href^="https://developers.openai.com/codex/"]'):
+    for anchor in group.select(
+        'a[href^="/codex/"], a[href^="https://developers.openai.com/codex/"]'
+    ):
         page = Page.from_href(anchor.get("href", ""))
         if page is not None:
             pages.setdefault(page.href, page)

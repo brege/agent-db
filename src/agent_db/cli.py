@@ -8,8 +8,7 @@ from pathlib import Path
 
 from rich.console import Console
 
-from agent_db import __version__
-from agent_db import claude, codex
+from agent_db import __version__, claude, codex
 from agent_db.display import MemoryPayload, loaded_context_model, print_loaded_context
 from agent_db.schema import Agent, claude_load_order, codex_load_order
 from agent_db.source import AgentSource

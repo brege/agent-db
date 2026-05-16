@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
 import re
 import shlex
 import shutil
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -19,7 +19,6 @@ from agent_db.source import (
     render_restrictions,
 )
 
-
 DECISION = {
     "allow": "allow",
     "ask": "prompt",
@@ -32,9 +31,7 @@ MANAGED_END = "# agent-db end"
 TABLE = re.compile(r"^\s*\[", re.MULTILINE)
 DEFAULT_PERMISSIONS = re.compile(r'(?m)^default_permissions\s*=\s*"agent_db"\s*\n(?:\n)?')
 ANY_DEFAULT_PERMISSIONS = re.compile(r'(?m)^default_permissions\s*=\s*".*?"\s*$')
-AGENT_DB_TABLE = re.compile(
-    r'(?ms)^\[permissions\.agent_db(?:\.[^\]]+)?\]\n.*?(?=^\[|\Z)'
-)
+AGENT_DB_TABLE = re.compile(r"(?ms)^\[permissions\.agent_db(?:\.[^\]]+)?\]\n.*?(?=^\[|\Z)")
 
 
 def write_global(source: AgentSource, codex_home: Path) -> list[Path]:

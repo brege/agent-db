@@ -12,7 +12,6 @@ from typing import Any
 
 import yaml
 
-
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 HOME_DIR = Path(__file__).parent / ".home"
 MANIFEST = HOME_DIR / ".manifest.json"

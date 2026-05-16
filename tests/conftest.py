@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pytest
 
-
 FIXTURES_HOME = Path(__file__).parent / ".home"
 
 
@@ -23,9 +22,7 @@ def fixture_paths():
     def _get_paths(file_stem: str, scenario: str) -> dict[str, Path]:
         base = FIXTURES_HOME / f"{file_stem}:{scenario}"
         if not base.exists():
-            raise FileNotFoundError(
-                f"Fixture {file_stem}:{scenario} not found at {base}"
-            )
+            raise FileNotFoundError(f"Fixture {file_stem}:{scenario} not found at {base}")
 
         result = {
             "base": base,

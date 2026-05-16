@@ -37,7 +37,8 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
             written.append(path)
 
     claude_md = home / "CLAUDE.md"
-    if files.write_text(claude_md, render_claude_md(sections, include_permissions=bool(permissions))):
+    rendered = render_claude_md(sections, include_permissions=bool(permissions))
+    if files.write_text(claude_md, rendered):
         written.append(claude_md)
 
     settings = home / "settings.json"
@@ -63,11 +64,7 @@ def render_settings(settings: dict[str, Any]) -> str:
 
 
 def claude_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    output = {
-        key: value
-        for key, value in settings.items()
-        if key != "permissions"
-    }
+    output = {key: value for key, value in settings.items() if key != "permissions"}
     permissions = claude_permissions(settings.get("permissions", {}))
     if permissions:
         output["permissions"] = permissions

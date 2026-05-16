@@ -19,8 +19,8 @@ from agent_db.display import (
 from agent_db.schema import (
     Agent,
     InstructionSource,
-    LoadTiming,
     LoadedContext,
+    LoadTiming,
     RulesSource,
     Scope,
     SettingsSource,
@@ -177,7 +177,8 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
     assert "user code" in agents_md
     assert "## Enforced Restrictions" in agents_md
     assert "- Never run 'git add' or any command matching it." in agents_md
-    assert 'default_permissions = "agent_db"' in (codex_home / "config.toml").read_text(encoding="utf-8")
+    codex_config = (codex_home / "config.toml").read_text(encoding="utf-8")
+    assert 'default_permissions = "agent_db"' in codex_config
     assert "glob_scan_max_depth = 3" in (codex_home / "config.toml").read_text(encoding="utf-8")
     assert '["sudo"]' in (codex_home / "rules" / "commands.rules").read_text(encoding="utf-8")
     assert '["git", "add"]' in (codex_home / "rules" / "commands.rules").read_text(encoding="utf-8")
@@ -349,26 +350,30 @@ def test_memory_models_preserve_json_shape(tmp_path) -> None:
 
 def test_memory_models_reject_unknown_fields(tmp_path) -> None:
     with pytest.raises(ValidationError):
-        MemoryContext.model_validate({
-            "agent": "claude",
-            "cwd": str(tmp_path),
-            "project_root": str(tmp_path),
-            "files": [],
-            "config": [],
-            "extra": True,
-        })
+        MemoryContext.model_validate(
+            {
+                "agent": "claude",
+                "cwd": str(tmp_path),
+                "project_root": str(tmp_path),
+                "files": [],
+                "config": [],
+                "extra": True,
+            }
+        )
 
 
 def test_memory_models_reject_invalid_enum_values(tmp_path) -> None:
     with pytest.raises(ValidationError):
-        MemoryFile.model_validate({
-            "section": "never",
-            "scope": "project",
-            "type": "memory",
-            "path": str(tmp_path / "CLAUDE.md"),
-            "requires_trust": False,
-            "path_globs": [],
-        })
+        MemoryFile.model_validate(
+            {
+                "section": "never",
+                "scope": "project",
+                "type": "memory",
+                "path": str(tmp_path / "CLAUDE.md"),
+                "requires_trust": False,
+                "path_globs": [],
+            }
+        )
 
 
 def test_memory_text_output_uses_rich_without_rule_spam(tmp_path, monkeypatch, capsys) -> None:
@@ -411,13 +416,15 @@ def test_cli_refresh_uses_docs_refresh(monkeypatch) -> None:
 
 def test_memory_output_shortens_home_paths() -> None:
     project = Path.home() / "code" / "project"
-    output = format_loaded_context({
-        "agent": "codex",
-        "cwd": str(project),
-        "project_root": str(project),
-        "files": [],
-        "config": [],
-    })
+    output = format_loaded_context(
+        {
+            "agent": "codex",
+            "cwd": str(project),
+            "project_root": str(project),
+            "files": [],
+            "config": [],
+        }
+    )
 
     assert "~/code/project" in output
     assert str(Path.home()) not in output
@@ -578,7 +585,7 @@ def test_codex_config_replaces_managed_block() -> None:
 
     assert '"/old/**"' not in layered
     assert '"/new/**"' in layered
-    assert '[tui]' in layered
+    assert "[tui]" in layered
 
 
 def test_codex_config_write_backs_up_existing_file(tmp_path) -> None:
@@ -608,6 +615,7 @@ def test_codex_config_write_backs_up_existing_file(tmp_path) -> None:
 def test_codex_path_normalizes_terminal_recursive_glob_to_root() -> None:
     assert codex.codex_path("~/code/**") == str(Path.home() / "code")
     assert codex.codex_path("/tmp/project/**") == "/tmp/project"
+
 
 def test_codex_skips_heredoc_patterns_that_are_not_argv_prefixes() -> None:
     rules = codex.render_rules(

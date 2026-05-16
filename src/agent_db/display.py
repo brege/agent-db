@@ -10,8 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from agent_db.schema import Agent, LoadTiming, LoadedContext, Scope, SourceType
-
+from agent_db.schema import Agent, LoadedContext, LoadTiming, Scope, SourceType
 
 TIMING_ORDER = [
     LoadTiming.STARTUP.value,

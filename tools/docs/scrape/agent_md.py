@@ -3,7 +3,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[3]
 URL = "https://github.com/agentsmd/agents.md"
 TARGET = ROOT / "docs" / "reference" / "agents.md"
@@ -40,8 +39,7 @@ def run(args: list[str]) -> subprocess.CompletedProcess[str]:
         args,
         check=True,
         text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
 
 
@@ -50,12 +48,14 @@ def normalize_url(url: str) -> str:
 
 
 def resolve_remote_head() -> str:
-    result = run([
-        "git",
-        "-C",
-        str(TARGET),
-        "symbolic-ref",
-        "refs/remotes/origin/HEAD",
-        "--short",
-    ])
+    result = run(
+        [
+            "git",
+            "-C",
+            str(TARGET),
+            "symbolic-ref",
+            "refs/remotes/origin/HEAD",
+            "--short",
+        ]
+    )
     return result.stdout.strip() or "origin/main"

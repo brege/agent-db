@@ -11,4 +11,3 @@ def fetch_text(url: str) -> str:
             raise RuntimeError(f"GET {url} returned HTTP {status}")
         charset = response.headers.get_content_charset() or "utf-8"
         return response.read().decode(charset, errors="replace")
-

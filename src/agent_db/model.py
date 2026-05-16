@@ -23,4 +23,3 @@ class PolicyRule:
     action: Action
     permission: Permission
     pattern: str
-

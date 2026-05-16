@@ -9,7 +9,6 @@ from bs4 import BeautifulSoup
 
 from .fetch import fetch_text
 
-
 ROOT = Path(__file__).resolve().parents[3]
 BASE_URL = "https://code.claude.com"
 DOCS_PREFIX = "/docs/en/"

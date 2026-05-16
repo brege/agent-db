@@ -17,7 +17,9 @@ def test_claude_user_only(fixture_paths):
     cwd = paths.get("cwd") or paths["home"]
     ctx = claude_load_order(cwd, claude_home=paths["home"] / ".claude")
 
-    user_memory = [s for s in ctx.sources if s.scope == Scope.USER and s.source_type == SourceType.MEMORY]
+    user_memory = [
+        s for s in ctx.sources if s.scope == Scope.USER and s.source_type == SourceType.MEMORY
+    ]
     assert len(user_memory) >= 1
     assert any(s.output_path.name == "CLAUDE.md" for s in user_memory)
 
@@ -31,8 +33,7 @@ def test_claude_layered_hierarchy(fixture_paths):
     ctx = claude_load_order(cwd, claude_home=paths["home"] / ".claude")
 
     memory_sources = [
-        s for s in ctx.sources
-        if s.source_type == SourceType.MEMORY and s.scope == Scope.PROJECT
+        s for s in ctx.sources if s.source_type == SourceType.MEMORY and s.scope == Scope.PROJECT
     ]
 
     output_paths = [s.output_path for s in memory_sources]
@@ -79,16 +80,14 @@ def test_claude_path_scoped_rules(fixture_paths):
     cwd = paths.get("cwd", paths["home"])
     ctx = claude_load_order(cwd, claude_home=paths["home"] / ".claude")
 
-    path_scoped = [
-        s for s in ctx.sources
-        if s.load_timing == LoadTiming.ON_READ_MATCH
-    ]
+    path_scoped = [s for s in ctx.sources if s.load_timing == LoadTiming.ON_READ_MATCH]
     assert len(path_scoped) >= 2
 
     assert any(s.path_globs for s in path_scoped)
 
     startup = [
-        s for s in ctx.sources
+        s
+        for s in ctx.sources
         if s.load_timing == LoadTiming.STARTUP and s.source_type == SourceType.RULES
     ]
     assert len(startup) >= 1
@@ -148,7 +147,9 @@ def test_codex_user_agents_md(fixture_paths):
         codex_home=paths["home"] / ".codex",
     )
 
-    user_memory = [s for s in ctx.sources if s.scope == Scope.USER and s.source_type == SourceType.MEMORY]
+    user_memory = [
+        s for s in ctx.sources if s.scope == Scope.USER and s.source_type == SourceType.MEMORY
+    ]
     assert len(user_memory) >= 1
     assert any(s.output_path.name == "AGENTS.md" for s in user_memory)
 
@@ -178,8 +179,7 @@ def test_codex_layered_agents_md(fixture_paths):
     )
 
     project_sources = [
-        s for s in ctx.sources
-        if s.scope == Scope.PROJECT and s.source_type == SourceType.MEMORY
+        s for s in ctx.sources if s.scope == Scope.PROJECT and s.source_type == SourceType.MEMORY
     ]
     paths_found = [s.output_path.relative_to(paths["repo"]).as_posix() for s in project_sources]
     assert paths_found == ["AGENTS.md", "src/AGENTS.md"]
@@ -282,8 +282,6 @@ def test_startup_on_demand_on_read_match_separation(tmp_path):
     ctx = claude_load_order(user_home, claude_home=user_home / ".claude")
 
     startup = ctx.startup_sources
-    on_demand = ctx.on_demand_sources
-    on_read_match = ctx.on_read_match_sources
 
     startup_timings = {s.load_timing for s in startup}
     assert LoadTiming.ON_DEMAND not in startup_timings

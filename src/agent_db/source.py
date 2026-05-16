@@ -7,7 +7,6 @@ from typing import Any
 
 import yaml
 
-
 LAYERS = ("dist", "user")
 H1 = re.compile(r"^# (?P<title>.+?)\s*$", re.MULTILINE)
 SLUG_PARTS = re.compile(r"[^a-z0-9]+")
@@ -90,9 +89,7 @@ class AgentSource:
             raise NotADirectoryError(resolved)
 
         layers = tuple(
-            load_layer(name, resolved / name)
-            for name in LAYERS
-            if (resolved / name).is_dir()
+            load_layer(name, resolved / name) for name in LAYERS if (resolved / name).is_dir()
         )
         if not layers:
             raise FileNotFoundError(f"no source layers under {resolved}")
@@ -202,9 +199,7 @@ def load_asset_dirs(path: Path) -> tuple[AssetDir, ...]:
     if not path.is_dir():
         return ()
     return tuple(
-        AssetDir(name=item.name, path=item)
-        for item in sorted(path.iterdir())
-        if item.is_dir()
+        AssetDir(name=item.name, path=item) for item in sorted(path.iterdir()) if item.is_dir()
     )
 
 
@@ -267,17 +262,12 @@ def render_restrictions(settings: dict[str, Any]) -> str:
     commands = permissions.get("commands", {})
     if isinstance(commands, dict):
         for pattern in commands.get("deny", []):
-            lines.append(
-                f"- Never run '{command_subject(pattern)}' or any command matching it."
-            )
+            lines.append(f"- Never run '{command_subject(pattern)}' or any command matching it.")
 
     paths = permissions.get("paths", {})
     if isinstance(paths, dict):
         deny = paths.get("deny", [])
-        path_rules = [
-            (rule["path"], set(rule.get("permissions", [])))
-            for rule in deny
-        ]
+        path_rules = [(rule["path"], set(rule.get("permissions", []))) for rule in deny]
         for permission, phrase in [
             ("edit", "edit files"),
             ("glob", "enumerate file paths"),
