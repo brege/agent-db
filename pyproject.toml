@@ -33,7 +33,7 @@ where = ["src"]
 pythonpath = ["src", "."]
 
 [tool.ty.src]
-include = ["src/agent_db"]
+include = ["src/agent_db", "tests", "tools"]
 respect-ignore-files = true
 
 [tool.ruff]

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from .fetch import fetch_text
 
@@ -77,13 +77,16 @@ def discover_pages_from_html(html: str, group_title: str = NAV_GROUP) -> list[Pa
     for anchor in group.select(
         'a[href^="/codex/"], a[href^="https://developers.openai.com/codex/"]'
     ):
-        page = Page.from_href(anchor.get("href", ""))
+        href = anchor.get("href")
+        if not isinstance(href, str):
+            continue
+        page = Page.from_href(href)
         if page is not None:
             pages.setdefault(page.href, page)
     return list(pages.values())
 
 
-def find_nav_group(nav: BeautifulSoup, title: str):
+def find_nav_group(nav: Tag, title: str):
     for heading in nav.find_all("h3"):
         if heading.get_text(strip=True) == title:
             group = heading.find_parent("div")

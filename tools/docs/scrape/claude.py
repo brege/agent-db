@@ -79,7 +79,10 @@ def discover_pages_from_html(html: str) -> list[Page]:
 
     pages: dict[str, Page] = {}
     for anchor in soup.select('a[href^="/docs/en/"], a[href^="https://code.claude.com/docs/en/"]'):
-        page = Page.from_href(anchor.get("href", ""))
+        href = anchor.get("href")
+        if not isinstance(href, str):
+            continue
+        page = Page.from_href(href)
         if page is not None:
             pages.setdefault(page.href, page)
     return list(pages.values())
