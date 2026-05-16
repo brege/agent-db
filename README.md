@@ -27,6 +27,10 @@ agent-db -m -a claude
 agent-db -m -a codex
 ```
 
+## Screenshot
+
+[![screenshot](docs/img/screenshot.png)](docs/img/screenshot.png)
+
 ## Inputs
 
 `agent-db` reads built-in defaults from `defaults/` and user config from `~/.config/agent-db` (on Linux).
