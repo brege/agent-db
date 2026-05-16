@@ -276,6 +276,12 @@ def claude_load_order(
                     path_globs=None,
                     description=f"Local instructions at {claude_local_md.relative_to(git_root)}",
                 ))
+                sources.extend(_resolve_at_imports(
+                    claude_local_md,
+                    Agent.CLAUDE,
+                    Scope.LOCAL,
+                    "local",
+                ))
 
             project_rules_dir = directory / ".claude" / "rules"
             if project_rules_dir.is_dir():

@@ -51,6 +51,29 @@ def test_claude_local_md(fixture_paths):
     assert any("CLAUDE.local.md" in str(s.output_path) for s in local_sources)
 
 
+def test_claude_local_md_resolves_imports(tmp_path):
+    home = tmp_path / "home"
+    repo = tmp_path / "repo"
+    claude_home = home / ".claude"
+    claude_home.mkdir(parents=True)
+    repo.mkdir()
+    (repo / ".git").mkdir()
+
+    (claude_home / "CLAUDE.md").write_text("# User\n", encoding="utf-8")
+    (repo / "CLAUDE.local.md").write_text("@AGENTS.md\n", encoding="utf-8")
+    (repo / "AGENTS.md").write_text("@README.md\n", encoding="utf-8")
+    (repo / "README.md").write_text("# Project\n", encoding="utf-8")
+
+    ctx = claude_load_order(repo, claude_home=claude_home)
+
+    imported = [
+        source.output_path.relative_to(repo).as_posix()
+        for source in ctx.sources
+        if source.scope == Scope.LOCAL and source.source_type == SourceType.RULES
+    ]
+    assert imported == ["AGENTS.md", "README.md"]
+
+
 def test_claude_path_scoped_rules(fixture_paths):
     paths = fixture_paths("claude", "path-scoped-rules")
     cwd = paths.get("cwd", paths["home"])
