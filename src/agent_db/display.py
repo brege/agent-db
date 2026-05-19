@@ -274,7 +274,7 @@ def display_path(path: str, data: dict[str, Any]) -> str:
     if project_root:
         project_root_path = Path(project_root)
         if resolved.is_relative_to(project_root_path):
-            return "./" + str(resolved.relative_to(project_root_path))
+            return str(resolved.relative_to(project_root_path))
     if resolved.is_relative_to(Path.home()):
         return "~/" + str(resolved.relative_to(Path.home()))
     return path

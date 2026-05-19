@@ -268,11 +268,11 @@ def test_memory_output_lists_files_without_permission_rule_spam(tmp_path) -> Non
     assert "project" in output
     assert "memory" in output
     assert "settings" in output
-    assert "./CLAUDE.md" in output
+    assert "CLAUDE.md" in output
     assert "(paths: src/**)" in output
     assert "[!trust]" in output
     assert "local" in output
-    assert "./settings.json" in output
+    assert "settings.json" in output
 
 
 def test_memory_json_output_uses_basic_data_structure(tmp_path, monkeypatch, capsys) -> None:
