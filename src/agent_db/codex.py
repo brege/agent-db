@@ -28,6 +28,10 @@ GLOB_SCAN_MAX_DEPTH = 3
 HEADING = re.compile(r"^(#{1,6})(?=\s)", re.MULTILINE)
 MANAGED_BEGIN = "# agent-db begin"
 MANAGED_END = "# agent-db end"
+CODEX_PROFILE_ADVISORY = "advisory"
+CODEX_PROFILE_ENFORCE = "enforce"
+CODEX_MODEL_KEYS = ("model", "model_reasoning_effort")
+CODEX_SETTING_KEYS = {*CODEX_MODEL_KEYS, "network", "permissions_profile"}
 TABLE = re.compile(r"^\s*\[", re.MULTILINE)
 DEFAULT_PERMISSIONS = re.compile(r'(?m)^default_permissions\s*=\s*"agent_db"\s*\n(?:\n)?')
 ANY_DEFAULT_PERMISSIONS = re.compile(r'(?m)^default_permissions\s*=\s*".*?"\s*$')
@@ -80,19 +84,35 @@ def first_content_line(markdown: str) -> str:
 
 
 def render_config(settings: dict[str, Any]) -> str:
+    codex = codex_settings(settings)
+    lines = codex_model_lines(codex)
+    network = codex_network(codex)
+
+    if codex_permissions_profile(codex) == CODEX_PROFILE_ADVISORY:
+        return render_lines(lines)
+
     filesystem = codex_filesystem(settings.get("permissions", {}))
     if not filesystem:
-        return ""
+        return render_lines(lines)
 
-    lines = [
-        'default_permissions = "agent_db"',
-        "",
-        "[permissions.agent_db.filesystem]",
-        f"glob_scan_max_depth = {GLOB_SCAN_MAX_DEPTH}",
-    ]
+    if lines:
+        lines.append("")
+    lines.extend(
+        [
+            'default_permissions = "agent_db"',
+            "",
+            "[permissions.agent_db.filesystem]",
+            f"glob_scan_max_depth = {GLOB_SCAN_MAX_DEPTH}",
+            '":minimal" = "read"',
+            '":project_roots" = { "." = "write" }',
+        ]
+    )
     for path, value in filesystem.items():
         lines.append(f"{toml_string(codex_path(path))} = {toml_string(value)}")
-    return "\n".join(lines) + "\n"
+    if network:
+        lines.extend(["", "[permissions.agent_db.network]"])
+        lines.extend(f"{key} = {value}" for key, value in network.items())
+    return render_lines(lines)
 
 
 def write_config(path: Path, generated: str) -> bool:
@@ -117,20 +137,23 @@ def backup_config(path: Path) -> Path:
 def layer_config(existing: str, generated: str) -> str:
     generated = generated.strip()
     if not generated:
-        return existing
+        return remove_agent_db_config(existing)
 
     if MANAGED_BEGIN in existing and MANAGED_END in existing:
         before, rest = existing.split(MANAGED_BEGIN, 1)
         _, after = rest.split(MANAGED_END, 1)
-        if has_existing_default_permissions(f"{before}\n{after}"):
-            generated = DEFAULT_PERMISSIONS.sub("", generated + "\n").strip()
-        managed = f"{MANAGED_BEGIN}\n{generated}\n{MANAGED_END}"
-        return clean_blank_lines(before.rstrip(), managed, after.lstrip())
+        existing = clean_blank_lines(before.rstrip(), after.lstrip())
+    else:
+        existing = remove_legacy_agent_db_config(existing)
 
-    existing = remove_legacy_agent_db_config(existing)
-    if has_existing_default_permissions(existing):
-        generated = DEFAULT_PERMISSIONS.sub("", generated + "\n").strip()
+    if generated_uses_agent_db_permissions(generated):
+        check_default_permissions_conflict(existing)
+    existing = remove_generated_top_level_keys(existing, generated)
 
+    return insert_managed_config(existing, generated)
+
+
+def insert_managed_config(existing: str, generated: str) -> str:
     managed = f"{MANAGED_BEGIN}\n{generated}\n{MANAGED_END}"
 
     match = TABLE.search(existing)
@@ -148,15 +171,114 @@ def remove_legacy_agent_db_config(config: str) -> str:
     return config.strip() + "\n" if config.strip() else ""
 
 
+def remove_agent_db_config(config: str) -> str:
+    if MANAGED_BEGIN in config and MANAGED_END in config:
+        before, rest = config.split(MANAGED_BEGIN, 1)
+        _, after = rest.split(MANAGED_END, 1)
+        config = clean_blank_lines(before.rstrip(), after.lstrip())
+    return remove_legacy_agent_db_config(config)
+
+
 def has_existing_default_permissions(config: str) -> bool:
     match = TABLE.search(config)
     top_level = config[: match.start()] if match is not None else config
     return ANY_DEFAULT_PERMISSIONS.search(top_level) is not None
 
 
+def generated_uses_agent_db_permissions(generated: str) -> bool:
+    return DEFAULT_PERMISSIONS.search(generated + "\n") is not None
+
+
+def check_default_permissions_conflict(config: str) -> None:
+    if has_existing_default_permissions(config):
+        raise ValueError(
+            "codex.permissions_profile enforce cannot be used while config.toml already "
+            "sets default_permissions outside the agent-db managed block"
+        )
+
+
 def clean_blank_lines(*parts: str) -> str:
     blocks = [part.strip() for part in parts if part.strip()]
     return "\n\n".join(blocks) + "\n"
+
+
+def remove_generated_top_level_keys(config: str, generated: str) -> str:
+    keys = generated_top_level_model_keys(generated)
+    if not keys:
+        return config
+
+    match = TABLE.search(config)
+    top_level = config[: match.start()] if match is not None else config
+    rest = config[match.start() :] if match is not None else ""
+    for key in keys:
+        top_level = re.sub(rf"(?m)^{re.escape(key)}\s*=.*\n?", "", top_level)
+    return clean_blank_lines(top_level.rstrip(), rest.lstrip())
+
+
+def generated_top_level_model_keys(config: str) -> set[str]:
+    match = TABLE.search(config)
+    top_level = config[: match.start()] if match is not None else config
+    return {key for key in CODEX_MODEL_KEYS if re.search(rf"(?m)^{re.escape(key)}\s*=", top_level)}
+
+
+def codex_settings(settings: dict[str, Any]) -> dict[str, Any]:
+    reject_top_level_codex_settings(settings)
+    codex = settings.get("codex", {})
+    if not isinstance(codex, dict):
+        raise ValueError("codex settings must be a mapping")
+    return codex
+
+
+def reject_top_level_codex_settings(settings: dict[str, Any]) -> None:
+    keys = CODEX_SETTING_KEYS.intersection(settings)
+    if keys:
+        names = ", ".join(sorted(keys))
+        raise ValueError(f"move Codex settings to codex: {names}")
+
+
+def codex_model_lines(codex: dict[str, Any]) -> list[str]:
+    lines: list[str] = []
+    for key in CODEX_MODEL_KEYS:
+        value = codex.get(key)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise ValueError(f"codex.{key} must be a string")
+        lines.append(f"{key} = {toml_string(value)}")
+    return lines
+
+
+def render_lines(lines: list[str]) -> str:
+    return "\n".join(lines) + "\n" if lines else ""
+
+
+def codex_permissions_profile(codex: dict[str, Any]) -> str:
+    profile = codex.get("permissions_profile", CODEX_PROFILE_ADVISORY)
+    if profile not in {CODEX_PROFILE_ADVISORY, CODEX_PROFILE_ENFORCE}:
+        raise ValueError("codex.permissions_profile must be advisory or enforce")
+    return profile
+
+
+def codex_network(codex: dict[str, Any]) -> dict[str, str]:
+    network = codex.get("network")
+    if network is None:
+        return {}
+    if not isinstance(network, dict):
+        raise ValueError("codex.network must be a mapping")
+
+    output: dict[str, str] = {}
+    if "enabled" in network:
+        enabled = network["enabled"]
+        if not isinstance(enabled, bool):
+            raise ValueError("codex.network.enabled must be a boolean")
+        output["enabled"] = toml_bool(enabled)
+
+    if "mode" in network:
+        mode = network["mode"]
+        if not isinstance(mode, str):
+            raise ValueError("codex.network.mode must be a string")
+        output["mode"] = toml_string(mode)
+    return output
 
 
 def codex_filesystem(permissions: Any) -> dict[str, str]:
@@ -187,6 +309,10 @@ def codex_path(path: str) -> str:
     if path.startswith("~/"):
         return str(Path(path).expanduser())
     return path
+
+
+def toml_bool(value: bool) -> str:
+    return "true" if value else "false"
 
 
 def write_rules(source: AgentSource, rules_dir: Path) -> list[Path]:

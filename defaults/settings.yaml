@@ -1,5 +1,6 @@
 append:
-  includeCoAuthoredBy: false
+  claude:
+    includeCoAuthoredBy: false
+    model: haiku
+    alwaysThinkingEnabled: true
   permissions: {}
-  model: haiku
-  alwaysThinkingEnabled: true

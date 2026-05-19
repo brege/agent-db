@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,9 @@ from agent_db.source import (
     merged_skills,
     render_restrictions,
 )
+
+AGENT_NAMESPACES = {"claude", "codex"}
+CLAUDE_SETTINGS = {"alwaysThinkingEnabled", "includeCoAuthoredBy", "model"}
 
 
 def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
@@ -42,7 +46,7 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
         written.append(claude_md)
 
     settings = home / "settings.json"
-    if files.write_text(settings, render_settings(settings_data)):
+    if write_settings(settings, settings_data):
         written.append(settings)
 
     written.extend(copy_assets(merged_skills(source), home / "skills"))
@@ -63,12 +67,49 @@ def render_settings(settings: dict[str, Any]) -> str:
     return json.dumps(claude_settings(settings), indent=2) + "\n"
 
 
+def write_settings(path: Path, settings: dict[str, Any]) -> bool:
+    existing = read_settings(path)
+    layered = layer_settings(existing, claude_settings(settings))
+    return files.write_text(path, json.dumps(layered, indent=2) + "\n")
+
+
+def read_settings(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"Claude settings must be a JSON object: {path}")
+    return data
+
+
+def layer_settings(existing: dict[str, Any], generated: dict[str, Any]) -> dict[str, Any]:
+    output = {
+        key: deepcopy(value)
+        for key, value in existing.items()
+        if key not in AGENT_NAMESPACES and key != "permissions"
+    }
+    for key, value in generated.items():
+        output[key] = deepcopy(value)
+    return output
+
+
 def claude_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    output = {key: value for key, value in settings.items() if key != "permissions"}
+    reject_top_level_claude_settings(settings)
+    claude = settings.get("claude", {})
+    if not isinstance(claude, dict):
+        raise ValueError("claude settings must be a mapping")
+    output = deepcopy(claude)
     permissions = claude_permissions(settings.get("permissions", {}))
     if permissions:
         output["permissions"] = permissions
     return output
+
+
+def reject_top_level_claude_settings(settings: dict[str, Any]) -> None:
+    keys = CLAUDE_SETTINGS.intersection(settings)
+    if keys:
+        names = ", ".join(sorted(keys))
+        raise ValueError(f"move Claude settings to claude: {names}")
 
 
 def claude_permissions(permissions: Any) -> dict[str, list[str]]:

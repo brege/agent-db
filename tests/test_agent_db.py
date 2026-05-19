@@ -107,8 +107,11 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
         dedent(
             """\
             append:
-              includeCoAuthoredBy: false
-              model: haiku
+              claude:
+                includeCoAuthoredBy: false
+                model: haiku
+              codex:
+                permissions_profile: advisory
             """
         ),
         encoding="utf-8",
@@ -170,6 +173,9 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
         "Read(~/.ssh/**)",
         "Edit(~/.ssh/**)",
     ]
+    assert claude_settings["model"] == "haiku"
+    assert "codex" not in claude_settings
+    assert "claude" not in claude_settings
 
     agents_md = (codex_home / "AGENTS.md").read_text(encoding="utf-8")
     assert agents_md.startswith("# AGENTS.md\n\n## Code")
@@ -177,9 +183,7 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
     assert "user code" in agents_md
     assert "## Enforced Restrictions" in agents_md
     assert "- Never run 'git add' or any command matching it." in agents_md
-    codex_config = (codex_home / "config.toml").read_text(encoding="utf-8")
-    assert 'default_permissions = "agent_db"' in codex_config
-    assert "glob_scan_max_depth = 3" in (codex_home / "config.toml").read_text(encoding="utf-8")
+    assert not (codex_home / "config.toml").exists()
     assert '["sudo"]' in (codex_home / "rules" / "commands.rules").read_text(encoding="utf-8")
     assert '["git", "add"]' in (codex_home / "rules" / "commands.rules").read_text(encoding="utf-8")
     assert (claude_home / "skills" / "comment-remover" / "SKILL.md").is_file()
@@ -483,7 +487,7 @@ def test_cli_build_uses_documented_home_environment(tmp_path, monkeypatch) -> No
     assert (claude_home / "CLAUDE.md").is_file()
     assert (claude_home / "settings.json").is_file()
     assert (codex_home / "AGENTS.md").is_file()
-    assert (codex_home / "config.toml").is_file()
+    assert not (codex_home / "config.toml").exists()
     assert (codex_home / "skills" / "comment-remover" / "SKILL.md").is_file()
 
 
@@ -492,6 +496,83 @@ def test_agent_db_home_uses_platform_config_dir(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
     assert cli.agent_db_home() == tmp_path / "agent-db"
+
+
+def test_claude_settings_use_only_claude_namespace() -> None:
+    rendered = claude.claude_settings(
+        {
+            "unknown": "ignored",
+            "claude": {
+                "model": "claude-opus-4-5-20251101",
+                "alwaysThinkingEnabled": True,
+            },
+            "codex": {
+                "permissions_profile": "enforce",
+            },
+            "permissions": {
+                "commands": {
+                    "deny": ["sudo *"],
+                },
+            },
+        }
+    )
+
+    assert rendered["model"] == "claude-opus-4-5-20251101"
+    assert rendered["alwaysThinkingEnabled"] is True
+    assert rendered["permissions"]["deny"] == ["Bash(sudo:*)"]
+    assert "codex" not in rendered
+    assert "claude" not in rendered
+    assert "unknown" not in rendered
+
+
+def test_claude_settings_reject_top_level_agent_keys() -> None:
+    with pytest.raises(ValueError, match="claude"):
+        claude.claude_settings({"model": "haiku"})
+
+
+def test_claude_settings_layer_preserves_unmanaged_existing_keys() -> None:
+    layered = claude.layer_settings(
+        {
+            "theme": "dark",
+            "codex": {
+                "permissions_profile": "enforce",
+            },
+            "permissions": {
+                "allow": ["Bash(npm:*)"],
+            },
+        },
+        {
+            "model": "sonnet",
+            "permissions": {
+                "deny": ["Bash(sudo:*)"],
+            },
+        },
+    )
+
+    assert layered["theme"] == "dark"
+    assert layered["model"] == "sonnet"
+    assert "allow" not in layered["permissions"]
+    assert layered["permissions"]["deny"] == ["Bash(sudo:*)"]
+    assert "codex" not in layered
+
+
+def test_claude_settings_layer_removes_stale_permissions_when_unmanaged() -> None:
+    layered = claude.layer_settings(
+        {
+            "theme": "dark",
+            "permissions": {
+                "deny": ["Bash(old:*)"],
+            },
+        },
+        {
+            "model": "sonnet",
+        },
+    )
+
+    assert layered == {
+        "theme": "dark",
+        "model": "sonnet",
+    }
 
 
 def test_codex_config_layers_into_existing_toml() -> None:
@@ -527,7 +608,161 @@ def test_codex_config_layers_into_existing_toml() -> None:
     assert "[permissions.agent_db.filesystem]" in layered
 
 
-def test_codex_config_preserves_existing_default_permissions() -> None:
+def test_codex_config_is_advisory_by_default() -> None:
+    generated = codex.render_config(
+        {
+            "permissions": {
+                "paths": {
+                    "allow": [
+                        {
+                            "path": "~/books/**",
+                            "permissions": ["read", "write"],
+                        }
+                    ],
+                    "deny": [
+                        {
+                            "path": "~/.ssh/**",
+                            "permissions": ["read"],
+                        }
+                    ],
+                }
+            }
+        }
+    )
+
+    assert generated == ""
+
+
+def test_codex_config_renders_namespaced_model_settings() -> None:
+    generated = codex.render_config(
+        {
+            "codex": {
+                "model": "gpt-5.5",
+                "model_reasoning_effort": "xhigh",
+            }
+        }
+    )
+
+    assert 'model = "gpt-5.5"' in generated
+    assert 'model_reasoning_effort = "xhigh"' in generated
+    assert 'default_permissions = "agent_db"' not in generated
+
+
+def test_codex_config_rejects_top_level_agent_keys() -> None:
+    with pytest.raises(ValueError, match="codex"):
+        codex.render_config({"model": "gpt-5.5"})
+
+
+def test_codex_config_replaces_existing_model_keys_when_managed() -> None:
+    existing = dedent(
+        """\
+        model = "gpt-5.3-codex"
+        model_reasoning_effort = "medium"
+
+        [sandbox_workspace_write]
+        network_access = true
+        """
+    )
+    generated = codex.render_config(
+        {
+            "codex": {
+                "model": "gpt-5.5",
+                "model_reasoning_effort": "xhigh",
+            }
+        }
+    )
+
+    layered = codex.layer_config(existing, generated)
+
+    assert layered.count("model = ") == 1
+    assert layered.count("model_reasoning_effort = ") == 1
+    assert 'model = "gpt-5.5"' in layered
+    assert 'model_reasoning_effort = "xhigh"' in layered
+    assert "gpt-5.3-codex" not in layered
+    assert "[sandbox_workspace_write]" in layered
+
+
+def test_codex_config_enforce_profile_is_complete() -> None:
+    generated = codex.render_config(
+        {
+            "codex": {
+                "permissions_profile": "enforce",
+                "network": {
+                    "enabled": True,
+                    "mode": "limited",
+                },
+            },
+            "permissions": {
+                "paths": {
+                    "allow": [
+                        {
+                            "path": "~/books/**",
+                            "permissions": ["read", "write"],
+                        }
+                    ],
+                    "deny": [
+                        {
+                            "path": "~/.ssh/**",
+                            "permissions": ["read"],
+                        }
+                    ],
+                }
+            },
+        }
+    )
+
+    assert 'default_permissions = "agent_db"' in generated
+    assert "[permissions.agent_db.filesystem]" in generated
+    assert '":minimal" = "read"' in generated
+    assert '":project_roots" = { "." = "write" }' in generated
+    assert f'{codex.toml_string(str(Path.home() / "books"))} = "write"' in generated
+    assert f'{codex.toml_string(str(Path.home() / ".ssh"))} = "none"' in generated
+    assert "[permissions.agent_db.network]" in generated
+    assert "enabled = true" in generated
+    assert 'mode = "limited"' in generated
+
+
+def test_codex_network_requires_mapping() -> None:
+    with pytest.raises(ValueError, match="codex.network"):
+        codex.render_config(
+            {
+                "codex": {
+                    "permissions_profile": "enforce",
+                    "network": "enabled",
+                }
+            }
+        )
+
+
+def test_codex_network_enabled_requires_bool() -> None:
+    with pytest.raises(ValueError, match="codex.network.enabled"):
+        codex.render_config(
+            {
+                "codex": {
+                    "permissions_profile": "enforce",
+                    "network": {
+                        "enabled": "true",
+                    },
+                }
+            }
+        )
+
+
+def test_codex_network_mode_requires_string() -> None:
+    with pytest.raises(ValueError, match="codex.network.mode"):
+        codex.render_config(
+            {
+                "codex": {
+                    "permissions_profile": "enforce",
+                    "network": {
+                        "mode": True,
+                    },
+                }
+            }
+        )
+
+
+def test_codex_config_enforce_rejects_existing_default_permissions() -> None:
     existing = dedent(
         """\
         default_permissions = "workspace"
@@ -547,12 +782,8 @@ def test_codex_config_preserves_existing_default_permissions() -> None:
         """
     )
 
-    layered = codex.layer_config(existing, generated)
-
-    assert layered.count("default_permissions") == 1
-    assert 'default_permissions = "workspace"' in layered
-    assert "[permissions.workspace.filesystem]" in layered
-    assert "[permissions.agent_db.filesystem]" in layered
+    with pytest.raises(ValueError, match="default_permissions"):
+        codex.layer_config(existing, generated)
 
 
 def test_codex_config_replaces_managed_block() -> None:
@@ -586,6 +817,33 @@ def test_codex_config_replaces_managed_block() -> None:
     assert '"/old/**"' not in layered
     assert '"/new/**"' in layered
     assert "[tui]" in layered
+
+
+def test_codex_config_removes_managed_block_when_empty() -> None:
+    existing = dedent(
+        """\
+        model = "gpt-5.5"
+
+        # agent-db begin
+        default_permissions = "agent_db"
+
+        [permissions.agent_db.filesystem]
+        "/old/**" = "none"
+        # agent-db end
+
+        [sandbox_workspace_write]
+        network_access = true
+        """
+    )
+
+    layered = codex.layer_config(existing, "")
+
+    assert "# agent-db begin" not in layered
+    assert 'default_permissions = "agent_db"' not in layered
+    assert "[permissions.agent_db.filesystem]" not in layered
+    assert 'model = "gpt-5.5"' in layered
+    assert "[sandbox_workspace_write]" in layered
+    assert "network_access = true" in layered
 
 
 def test_codex_config_write_backs_up_existing_file(tmp_path) -> None:
