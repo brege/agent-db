@@ -86,20 +86,23 @@ def first_content_line(markdown: str) -> str:
 def render_config(settings: dict[str, Any]) -> str:
     codex = codex_settings(settings)
     lines = codex_model_lines(codex)
-    network = codex_network(codex)
+    profile = codex_permissions_profile(codex)
 
-    if codex_permissions_profile(codex) == CODEX_PROFILE_ADVISORY:
+    if profile == CODEX_PROFILE_ADVISORY:
+        if "network" in codex:
+            raise ValueError("codex.network requires codex.permissions_profile enforce")
         return render_lines(lines)
 
+    network = codex_network(codex)
     filesystem = codex_filesystem(settings.get("permissions", {}))
-    if not filesystem:
+    if not filesystem and not network:
         return render_lines(lines)
 
     if lines:
         lines.append("")
+    lines.append('default_permissions = "agent_db"')
     lines.extend(
         [
-            'default_permissions = "agent_db"',
             "",
             "[permissions.agent_db.filesystem]",
             f"glob_scan_max_depth = {GLOB_SCAN_MAX_DEPTH}",
@@ -107,8 +110,9 @@ def render_config(settings: dict[str, Any]) -> str:
             '":project_roots" = { "." = "write" }',
         ]
     )
-    for path, value in filesystem.items():
-        lines.append(f"{toml_string(codex_path(path))} = {toml_string(value)}")
+    if filesystem:
+        for path, value in filesystem.items():
+            lines.append(f"{toml_string(codex_path(path))} = {toml_string(value)}")
     if network:
         lines.extend(["", "[permissions.agent_db.network]"])
         lines.extend(f"{key} = {value}" for key, value in network.items())

@@ -28,6 +28,23 @@ from agent_db.schema import (
 )
 from agent_db.source import AgentSource, assemble_sections
 
+CODEX_PATH_PERMISSIONS = {
+    "paths": {
+        "allow": [
+            {
+                "path": "~/books/**",
+                "permissions": ["read", "write"],
+            }
+        ],
+        "deny": [
+            {
+                "path": "~/.ssh/**",
+                "permissions": ["read"],
+            }
+        ],
+    }
+}
+
 
 def test_instructions_use_title_filename_h1_order_and_default_append(tmp_path) -> None:
     source_root = tmp_path / "source"
@@ -611,41 +628,11 @@ def test_codex_config_layers_into_existing_toml() -> None:
 def test_codex_config_is_advisory_by_default() -> None:
     generated = codex.render_config(
         {
-            "permissions": {
-                "paths": {
-                    "allow": [
-                        {
-                            "path": "~/books/**",
-                            "permissions": ["read", "write"],
-                        }
-                    ],
-                    "deny": [
-                        {
-                            "path": "~/.ssh/**",
-                            "permissions": ["read"],
-                        }
-                    ],
-                }
-            }
+            "permissions": CODEX_PATH_PERMISSIONS,
         }
     )
 
     assert generated == ""
-
-
-def test_codex_config_renders_namespaced_model_settings() -> None:
-    generated = codex.render_config(
-        {
-            "codex": {
-                "model": "gpt-5.5",
-                "model_reasoning_effort": "xhigh",
-            }
-        }
-    )
-
-    assert 'model = "gpt-5.5"' in generated
-    assert 'model_reasoning_effort = "xhigh"' in generated
-    assert 'default_permissions = "agent_db"' not in generated
 
 
 def test_codex_config_rejects_top_level_agent_keys() -> None:
@@ -678,6 +665,7 @@ def test_codex_config_replaces_existing_model_keys_when_managed() -> None:
     assert layered.count("model_reasoning_effort = ") == 1
     assert 'model = "gpt-5.5"' in layered
     assert 'model_reasoning_effort = "xhigh"' in layered
+    assert 'default_permissions = "agent_db"' not in layered
     assert "gpt-5.3-codex" not in layered
     assert "[sandbox_workspace_write]" in layered
 
@@ -692,22 +680,7 @@ def test_codex_config_enforce_profile_is_complete() -> None:
                     "mode": "limited",
                 },
             },
-            "permissions": {
-                "paths": {
-                    "allow": [
-                        {
-                            "path": "~/books/**",
-                            "permissions": ["read", "write"],
-                        }
-                    ],
-                    "deny": [
-                        {
-                            "path": "~/.ssh/**",
-                            "permissions": ["read"],
-                        }
-                    ],
-                }
-            },
+            "permissions": CODEX_PATH_PERMISSIONS,
         }
     )
 
@@ -722,42 +695,69 @@ def test_codex_config_enforce_profile_is_complete() -> None:
     assert 'mode = "limited"' in generated
 
 
-def test_codex_network_requires_mapping() -> None:
-    with pytest.raises(ValueError, match="codex.network"):
+def test_codex_config_enforce_network_keeps_filesystem_baseline() -> None:
+    generated = codex.render_config(
+        {
+            "codex": {
+                "permissions_profile": "enforce",
+                "network": {
+                    "enabled": True,
+                },
+            },
+        }
+    )
+
+    assert 'default_permissions = "agent_db"' in generated
+    assert "[permissions.agent_db.filesystem]" in generated
+    assert '":minimal" = "read"' in generated
+    assert '":project_roots" = { "." = "write" }' in generated
+    assert "[permissions.agent_db.network]" in generated
+    assert "enabled = true" in generated
+
+
+@pytest.mark.parametrize(
+    ("codex_config", "message"),
+    [
+        (
+            {
+                "network": {
+                    "enabled": True,
+                },
+            },
+            "permissions_profile",
+        ),
+        (
+            {
+                "permissions_profile": "enforce",
+                "network": "enabled",
+            },
+            "codex.network",
+        ),
+        (
+            {
+                "permissions_profile": "enforce",
+                "network": {
+                    "enabled": "true",
+                },
+            },
+            "codex.network.enabled",
+        ),
+        (
+            {
+                "permissions_profile": "enforce",
+                "network": {
+                    "mode": True,
+                },
+            },
+            "codex.network.mode",
+        ),
+    ],
+)
+def test_codex_network_validation(codex_config, message) -> None:
+    with pytest.raises(ValueError, match=message):
         codex.render_config(
             {
-                "codex": {
-                    "permissions_profile": "enforce",
-                    "network": "enabled",
-                }
-            }
-        )
-
-
-def test_codex_network_enabled_requires_bool() -> None:
-    with pytest.raises(ValueError, match="codex.network.enabled"):
-        codex.render_config(
-            {
-                "codex": {
-                    "permissions_profile": "enforce",
-                    "network": {
-                        "enabled": "true",
-                    },
-                }
-            }
-        )
-
-
-def test_codex_network_mode_requires_string() -> None:
-    with pytest.raises(ValueError, match="codex.network.mode"):
-        codex.render_config(
-            {
-                "codex": {
-                    "permissions_profile": "enforce",
-                    "network": {
-                        "mode": True,
-                    },
-                }
+                "codex": codex_config,
             }
         )
 
