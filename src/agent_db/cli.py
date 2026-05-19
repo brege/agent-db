@@ -25,15 +25,15 @@ def build_parser() -> argparse.ArgumentParser:
         version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
-        "--memory",
         "-m",
+        "--memory",
         dest="show_memory",
         action="store_true",
         help="show what Claude and Codex will load from current directory",
     )
     parser.add_argument(
-        "--agent",
         "-a",
+        "--agent",
         choices=["claude", "codex", "all"],
         default="all",
         help="agent to inspect with --memory",
@@ -45,8 +45,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="emit --memory output as JSON",
     )
     parser.add_argument(
-        "--refresh",
         "-r",
+        "--refresh",
         dest="refresh_docs",
         action="store_true",
         help="refresh local reference snapshots",

@@ -435,6 +435,17 @@ def test_cli_refresh_uses_docs_refresh(monkeypatch) -> None:
     assert calls == ["refresh", "refresh"]
 
 
+def test_cli_help_lists_short_flags_first() -> None:
+    help_text = cli.build_parser().format_help()
+
+    assert "-m, --memory" in help_text
+    assert "-a, --agent {claude,codex,all}" in help_text
+    assert "-r, --refresh" in help_text
+    assert "--memory, -m" not in help_text
+    assert "--agent, -a" not in help_text
+    assert "--refresh, -r" not in help_text
+
+
 def test_memory_output_shortens_home_paths() -> None:
     project = Path.home() / "code" / "project"
     output = format_loaded_context(
