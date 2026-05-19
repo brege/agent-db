@@ -496,10 +496,11 @@ def test_cli_build_uses_documented_home_environment(tmp_path, monkeypatch) -> No
     codex_home = tmp_path / "codex"
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("AGENT_DB_DEFAULTS", str(defaults_root))
+    monkeypatch.setenv("AGENT_DB_HOME", str(user_root))
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude_home))
     monkeypatch.setenv("CODEX_HOME", str(codex_home))
 
-    assert cli.main(["--from", str(user_root)]) == 0
+    assert cli.main([]) == 0
 
     assert (claude_home / "CLAUDE.md").is_file()
     assert (claude_home / "settings.json").is_file()

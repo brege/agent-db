@@ -25,12 +25,6 @@ def build_parser() -> argparse.ArgumentParser:
         version=f"%(prog)s {__version__}",
     )
     parser.add_argument(
-        "--from",
-        dest="user_root",
-        type=Path,
-        help="read user config from this directory",
-    )
-    parser.add_argument(
         "--memory",
         "-m",
         dest="show_memory",
@@ -68,8 +62,6 @@ def main(argv: list[str] | None = None) -> int:
     if args.refresh_docs:
         if args.show_memory:
             parser.error("--refresh cannot be used with --memory")
-        if args.user_root is not None:
-            parser.error("--from cannot be used with --refresh")
         if args.json_output:
             parser.error("--json requires --memory")
         if args.agent != "all":
@@ -119,7 +111,7 @@ def show_memory(args: argparse.Namespace) -> int:
 
 
 def build_outputs(args: argparse.Namespace) -> int:
-    source = AgentSource.from_roots(defaults_root(), args.user_root or agent_db_home())
+    source = AgentSource.from_roots(defaults_root(), agent_db_home())
     written = claude.write_global(source, claude_home())
     written.extend(codex.write_global(source, codex_home()))
 
