@@ -1,19 +1,18 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
-
-from bs4 import BeautifulSoup, Tag
 
 from .fetch import fetch_text
 
 ROOT = Path(__file__).resolve().parents[3]
 BASE_URL = "https://developers.openai.com"
 DOCS_PREFIX = "/codex/"
-DISCOVERY_URL = f"{BASE_URL}/codex"
-NAV_GROUP = "Configuration"
+DISCOVERY_URL = f"{BASE_URL}/codex/llms.txt"
 OUTPUT_ROOT = ROOT / "docs" / "reference" / "codex"
+INDEX_OUTPUT = OUTPUT_ROOT / "README.md"
 AGENTS_MD_HEADINGS = [
     "How Codex discovers guidance",
     "Create global guidance",
@@ -26,6 +25,9 @@ NAV_NOISE = {
     "Search docs",
     "Primary navigation",
 }
+
+# Match Codex's absolute markdown links in the machine-readable docs index.
+DOCS_LINK_PATTERN = re.compile(r"https://developers\.openai\.com/codex/[A-Za-z0-9_./-]+\.md")
 
 
 @dataclass(frozen=True)
@@ -52,9 +54,10 @@ class Page:
 
 
 def refresh() -> list[Path]:
-    outputs: list[Path] = []
+    index = fetch_text(DISCOVERY_URL)
+    outputs = [write_index(index)]
     seen: set[Path] = set()
-    for page in discover_pages():
+    for page in discover_pages_from_index(index):
         if page.output in seen:
             raise RuntimeError(f"duplicate output path: {page.output}")
         seen.add(page.output)
@@ -63,37 +66,29 @@ def refresh() -> list[Path]:
 
 
 def discover_pages() -> list[Page]:
-    return discover_pages_from_html(fetch_text(DISCOVERY_URL))
+    return discover_pages_from_index(fetch_text(DISCOVERY_URL))
 
 
-def discover_pages_from_html(html: str, group_title: str = NAV_GROUP) -> list[Page]:
-    soup = BeautifulSoup(html, "html.parser")
-    nav = soup.select_one('nav[data-left-nav-id="/codex"]')
-    if nav is None:
-        raise RuntimeError("Codex left navigation not found")
+def write_index(index: str) -> Path:
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    INDEX_OUTPUT.write_text(normalize_index(index), encoding="utf-8")
+    return INDEX_OUTPUT
 
-    group = find_nav_group(nav, group_title)
+
+def normalize_index(index: str) -> str:
+    return f"{index.strip()}\n\nSource: <{DISCOVERY_URL}>\n"
+
+
+def discover_pages_from_index(index: str) -> list[Page]:
     pages: dict[str, Page] = {}
-    for anchor in group.select(
-        'a[href^="/codex/"], a[href^="https://developers.openai.com/codex/"]'
-    ):
-        href = anchor.get("href")
-        if not isinstance(href, str):
-            continue
+    for href in DOCS_LINK_PATTERN.findall(index):
         page = Page.from_href(href)
         if page is not None:
             pages.setdefault(page.href, page)
+
+    if not pages:
+        raise RuntimeError("Codex docs index contained no pages")
     return list(pages.values())
-
-
-def find_nav_group(nav: Tag, title: str):
-    for heading in nav.find_all("h3"):
-        if heading.get_text(strip=True) == title:
-            group = heading.find_parent("div")
-            if group is None:
-                break
-            return group
-    raise RuntimeError(f"Codex left navigation group not found: {title}")
 
 
 def normalize_docs_href(href: str) -> str | None:

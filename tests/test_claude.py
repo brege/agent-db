@@ -55,6 +55,12 @@ def test_discovers_claude_pages_from_llms_index() -> None:
     assert pages[1].output == claude.OUTPUT_ROOT / "agent-sdk" / "overview.md"
 
 
+def test_normalizes_claude_index_as_readme() -> None:
+    assert claude.normalize_index("# Claude Code Docs\n") == (
+        "# Claude Code Docs\n\nSource: <https://code.claude.com/docs/llms.txt>\n"
+    )
+
+
 def test_claude_validation_allows_html_examples() -> None:
     page = claude.Page.from_href("/docs/en/skills")
 

@@ -28,22 +28,14 @@ def test_validates_expected_codex_markdown() -> None:
     codex.validate_markdown(page, markdown)
 
 
-def test_discovers_codex_configuration_pages_from_left_nav() -> None:
-    pages = codex.discover_pages_from_html(
-        """<nav data-left-nav-id="/codex">
-        <div>
-          <h3>Getting Started</h3>
-          <ul><li><a href="/codex/quickstart">Quickstart</a></li></ul>
-        </div>
-        <div>
-          <h3>Configuration</h3>
-          <ul>
-            <li><a href="/codex/config-basic">Config Basics</a></li>
-            <li><a href="/codex/guides/agents-md">AGENTS.md</a></li>
-            <li><a href="/codex/plugins/build">Build plugins</a></li>
-          </ul>
-        </div>
-        </nav>"""
+def test_discovers_codex_pages_from_llms_index() -> None:
+    pages = codex.discover_pages_from_index(
+        """# Codex
+        - [Config Basics](https://developers.openai.com/codex/config-basic.md): Config docs.
+        - [AGENTS.md](https://developers.openai.com/codex/guides/agents-md.md): Agent docs.
+        - [Build plugins](https://developers.openai.com/codex/plugins/build.md): Plugin docs.
+        - [Combined Codex docs](https://developers.openai.com/codex/llms-full.txt): Full docs.
+        """
     )
 
     assert [page.href for page in pages] == [
@@ -52,3 +44,9 @@ def test_discovers_codex_configuration_pages_from_left_nav() -> None:
         "/codex/plugins/build",
     ]
     assert pages[2].output == codex.OUTPUT_ROOT / "plugins" / "build.md"
+
+
+def test_normalizes_codex_index_as_readme() -> None:
+    assert codex.normalize_index("# Codex\n") == (
+        "# Codex\n\nSource: <https://developers.openai.com/codex/llms.txt>\n"
+    )

@@ -12,6 +12,7 @@ BASE_URL = "https://code.claude.com"
 DOCS_PREFIX = "/docs/en/"
 OUTPUT_ROOT = ROOT / "docs" / "reference" / "claude"
 DISCOVERY_URL = f"{BASE_URL}/docs/llms.txt"
+INDEX_OUTPUT = OUTPUT_ROOT / "README.md"
 
 # Match Claude's absolute markdown links in the machine-readable docs index.
 DOCS_LINK_PATTERN = re.compile(r"https://code\.claude\.com/docs/en/[A-Za-z0-9_./-]+\.md")
@@ -41,9 +42,10 @@ class Page:
 
 
 def refresh() -> list[Path]:
-    outputs: list[Path] = []
+    index = fetch_text(DISCOVERY_URL)
+    outputs = [write_index(index)]
     seen: set[Path] = set()
-    for page in discover_pages():
+    for page in discover_pages_from_index(index):
         if page.output in seen:
             raise RuntimeError(f"duplicate output path: {page.output}")
         seen.add(page.output)
@@ -53,6 +55,16 @@ def refresh() -> list[Path]:
 
 def discover_pages() -> list[Page]:
     return discover_pages_from_index(fetch_text(DISCOVERY_URL))
+
+
+def write_index(index: str) -> Path:
+    OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    INDEX_OUTPUT.write_text(normalize_index(index), encoding="utf-8")
+    return INDEX_OUTPUT
+
+
+def normalize_index(index: str) -> str:
+    return f"{index.strip()}\n\nSource: <{DISCOVERY_URL}>\n"
 
 
 def discover_pages_from_index(index: str) -> list[Page]:
