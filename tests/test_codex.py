@@ -28,6 +28,26 @@ def test_validates_expected_codex_markdown() -> None:
     codex.validate_markdown(page, markdown)
 
 
+def test_validates_codex_manual_frontmatter() -> None:
+    page = codex.Page.from_href("/codex/codex-manual")
+    markdown = "\n".join(
+        [
+            "---",
+            'title: "Codex Manual"',
+            "hidden: true",
+            "---",
+            "",
+            "## Find By Topic",
+            "This manual contains enough text to behave like a normal reference page.",
+            "This manual contains enough text to behave like a normal reference page.",
+            "This manual contains enough text to behave like a normal reference page.",
+        ]
+    )
+
+    assert page is not None
+    codex.validate_markdown(page, markdown)
+
+
 def test_discovers_codex_pages_from_llms_index() -> None:
     pages = codex.discover_pages_from_index(
         """# Codex

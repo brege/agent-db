@@ -28,6 +28,7 @@ NAV_NOISE = {
 
 # Match Codex's absolute markdown links in the machine-readable docs index.
 DOCS_LINK_PATTERN = re.compile(r"https://developers\.openai\.com/codex/[A-Za-z0-9_./-]+\.md")
+FRONTMATTER_PATTERN = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -112,7 +113,8 @@ def write_page(page: Page) -> Path:
 
 
 def validate_markdown(page: Page, markdown: str) -> None:
-    if len(markdown) < 200 or not markdown.lstrip().startswith("# "):
+    body = FRONTMATTER_PATTERN.sub("", markdown.lstrip(), count=1).lstrip()
+    if len(markdown) < 200 or not body.startswith(("# ", "## ")):
         raise RuntimeError(f"unexpectedly small Codex markdown for {page.url}")
     for phrase in NAV_NOISE:
         if phrase in markdown:
