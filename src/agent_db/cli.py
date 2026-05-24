@@ -51,6 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="refresh local reference snapshots",
     )
+    parser.add_argument(
+        "--reference-root",
+        action="store_true",
+        help="print the local reference snapshot root",
+    )
 
     return parser
 
@@ -66,7 +71,17 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--json requires --memory")
         if args.agent != "all":
             parser.error("--agent requires --memory")
+        if args.reference_root:
+            parser.error("--refresh cannot be used with --reference-root")
         return refresh_docs()
+    if args.reference_root:
+        if args.show_memory:
+            parser.error("--reference-root cannot be used with --memory")
+        if args.json_output:
+            parser.error("--json requires --memory")
+        if args.agent != "all":
+            parser.error("--agent requires --memory")
+        return print_reference_root()
     if args.json_output and not args.show_memory:
         parser.error("--json requires --memory")
     if args.agent != "all" and not args.show_memory:
@@ -128,6 +143,15 @@ def refresh_docs() -> int:
     from tools.docs import refresh
 
     return refresh.main()
+
+
+def print_reference_root() -> int:
+    print(reference_root())
+    return 0
+
+
+def reference_root() -> Path:
+    return Path(__file__).resolve().parents[2] / "docs" / "reference"
 
 
 def defaults_root() -> Path:
