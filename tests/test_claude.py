@@ -37,14 +37,14 @@ def test_claude_markdown_urls_append_md() -> None:
     assert page.markdown_url == "https://code.claude.com/docs/en/permissions.md"
 
 
-def test_discovers_claude_pages_from_sidebar_html() -> None:
-    pages = claude.discover_pages_from_html(
-        """<div id="navigation-items">
-        <a href="/docs/en/cli-reference">CLI reference</a>
-        <a href="/docs/en/agent-sdk/overview">Agent SDK</a>
-        <a href="/docs/en/memory#auto-memory">Memory</a>
-        <a href="/docs/fr/overview">French</a>
-        </div>"""
+def test_discovers_claude_pages_from_llms_index() -> None:
+    pages = claude.discover_pages_from_index(
+        """# Claude Code Docs
+        - [CLI reference](https://code.claude.com/docs/en/cli-reference.md): CLI docs.
+        - [Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview.md): SDK docs.
+        - [Memory](https://code.claude.com/docs/en/memory.md): Memory docs.
+        - [French](https://code.claude.com/docs/fr/overview.md): French docs.
+        """
     )
 
     assert [page.href for page in pages] == [

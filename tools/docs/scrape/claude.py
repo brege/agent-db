@@ -5,15 +5,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-from bs4 import BeautifulSoup
-
 from .fetch import fetch_text
 
 ROOT = Path(__file__).resolve().parents[3]
 BASE_URL = "https://code.claude.com"
 DOCS_PREFIX = "/docs/en/"
 OUTPUT_ROOT = ROOT / "docs" / "reference" / "claude"
-DISCOVERY_SEED = "https://code.claude.com/docs/en/glossary"
+DISCOVERY_URL = f"{BASE_URL}/docs/llms.txt"
+
+# Match Claude's absolute markdown links in the machine-readable docs index.
+DOCS_LINK_PATTERN = re.compile(r"https://code\.claude\.com/docs/en/[A-Za-z0-9_./-]+\.md")
 
 
 @dataclass(frozen=True)
@@ -51,40 +52,18 @@ def refresh() -> list[Path]:
 
 
 def discover_pages() -> list[Page]:
-    seed = Page.from_href(DISCOVERY_SEED)
-    if seed is None:
-        raise RuntimeError(f"invalid Claude docs discovery seed: {DISCOVERY_SEED}")
-
-    pages: dict[str, Page] = {seed.href: seed}
-    queue = [seed]
-    visited: set[str] = set()
-
-    while queue:
-        page = queue.pop(0)
-        if page.href in visited:
-            continue
-        visited.add(page.href)
-
-        for discovered in discover_pages_from_html(fetch_text(page.url)):
-            if discovered.href in pages:
-                continue
-            pages[discovered.href] = discovered
-            queue.append(discovered)
-
-    return list(pages.values())
+    return discover_pages_from_index(fetch_text(DISCOVERY_URL))
 
 
-def discover_pages_from_html(html: str) -> list[Page]:
-    soup = BeautifulSoup(html, "html.parser")
-
+def discover_pages_from_index(index: str) -> list[Page]:
     pages: dict[str, Page] = {}
-    for anchor in soup.select('a[href^="/docs/en/"], a[href^="https://code.claude.com/docs/en/"]'):
-        href = anchor.get("href")
-        if not isinstance(href, str):
-            continue
+    for href in DOCS_LINK_PATTERN.findall(index):
         page = Page.from_href(href)
         if page is not None:
             pages.setdefault(page.href, page)
+
+    if not pages:
+        raise RuntimeError("Claude docs index contained no pages")
     return list(pages.values())
 
 
@@ -115,6 +94,7 @@ def normalize_markdown(markdown: str) -> str:
 
 
 def strip_docs_index(markdown: str) -> str:
+    # Remove the machine-readable index banner copied into individual markdown pages.
     return re.sub(
         r"\A> ## Documentation Index\n"
         r"> Fetch the complete documentation index at: .+\n"
@@ -125,6 +105,7 @@ def strip_docs_index(markdown: str) -> str:
 
 
 def normalize_admonitions(markdown: str) -> str:
+    # Convert Claude custom admonition tags into GitHub-style blockquotes.
     pattern = re.compile(
         r"<(Note|Tip|Important|Warning|Caution)(?:\s[^>]*)?>\n(.*?)\n</\1>",
         re.DOTALL,
