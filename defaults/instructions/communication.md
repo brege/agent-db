@@ -52,10 +52,11 @@ override: true
 - Be direct and efficient
 - Don't apologize excessively
 - NO conditional offers
-- Use US keyboard ASCII characters for new content by default
-- Do not introduce em dash, en dash, or two-hyphen dash substitutes in new content
-- If preserved content already contains those characters or sequences, keep them unless the user authorizes a rewrite
-- Non-ASCII characters may appear only when preserved from existing content or explicitly approved, and should stay rare
+- Write new content in US-keyboard ASCII.
+- Do not use a dash as sentence punctuation: to join or separate clauses, set off an aside, mark a pause, or replace a comma, colon, or parentheses. The ban is by function, not by glyph: it covers the em dash, en dash, figure dash, horizontal bar, a double hyphen ` -- `, and a spaced single hyphen ` - ` equally. Do not evade it by swapping one glyph for another or by rephrasing to keep the same break; split into separate sentences or use a comma, colon, or parentheses.
+- A hyphen is allowed only when it is not punctuation: compound words (multi-step, well-known), CLI flags (--message), numeric ranges, and code.
+- Do not substitute other non-ASCII characters for the same effect (typographic quotes, an ellipsis glyph, non-ASCII bullets). Non-ASCII may appear only when preserved from existing content or explicitly approved, and should stay rare.
+- If preserved content already contains these characters or sequences, keep them unless the user authorizes a rewrite.
 - Do not hard-wrap markdown prose to fixed columns
 - Wrap only commit messages and clear ASCII structures
 - Keep markdown paragraphs continuous unless repeated serial items read better one per line
