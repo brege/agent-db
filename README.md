@@ -80,6 +80,10 @@ override: true
 
 Settings live in `settings.yaml` or `settings/*.yaml`. Use `append` for merged settings and `override` for replacement values.
 
+## Security defaults
+
+The dist layer ships a credential-path deny list and strict Claude Code sandbox settings out of the box. See [docs/defaults.md](docs/defaults.md) for what is denied, what is assumed about the user's environment, and how to override.
+
 ## References
 
 Curated doc links live in [docs/reference/README.md](docs/reference/README.md). Generated reference snapshots under `docs/reference/claude/`, `docs/reference/codex/`, and `docs/reference/agents.md/` are ignored by git.

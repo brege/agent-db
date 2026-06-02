@@ -8,4 +8,44 @@ append:
       failIfUnavailable: true
       autoAllowBashIfSandboxed: true
       allowUnsandboxedCommands: false
-  permissions: {}
+  permissions:
+    paths:
+      deny:
+        - path: "~/.ssh/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.gnupg/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.password-store/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.local/share/keyrings/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.aws/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.azure/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.config/gcloud/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.kube/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.config/gh/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.docker/config.json"
+          permissions: [read, edit, write]
+        - path: "~/.npmrc"
+          permissions: [read, edit, write]
+        - path: "~/.pypirc"
+          permissions: [read, edit, write]
+        - path: "~/.cargo/credentials.toml"
+          permissions: [read, edit, write]
+        - path: "~/.gem/credentials"
+          permissions: [read, edit, write]
+        - path: "~/.git-credentials"
+          permissions: [read, edit, write]
+        - path: "~/.netrc"
+          permissions: [read, edit, write]
+        - path: "~/.bash_history"
+          permissions: [read, edit, write]
+        - path: "~/.zsh_history"
+          permissions: [read, edit, write]
+        - path: "~/.local/share/fish/fish_history"
+          permissions: [read, edit, write]
