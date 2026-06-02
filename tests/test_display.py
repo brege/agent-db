@@ -223,6 +223,7 @@ def test_memory_text_output_uses_rich_without_rule_spam(tmp_path, monkeypatch, c
     (claude_home / "CLAUDE.md").write_text("# User\n", encoding="utf-8")
     monkeypatch.chdir(work)
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(claude_home))
+    monkeypatch.setenv("COLUMNS", "200")
 
     assert cli.main(["--memory", "--agent", "claude"]) == 0
 

@@ -124,7 +124,7 @@ def load_instructions(path: Path) -> tuple[Instruction, ...]:
 
 def parse_instruction(path: Path) -> Instruction:
     raw = path.read_text(encoding="utf-8")
-    frontmatter, body = split_frontmatter(raw)
+    frontmatter, body = split_frontmatter(raw, path)
     title = instruction_title(path, body, frontmatter)
     return Instruction(
         key=slug(title),
@@ -135,14 +135,18 @@ def parse_instruction(path: Path) -> Instruction:
     )
 
 
-def split_frontmatter(raw: str) -> tuple[dict[str, Any], str]:
+def split_frontmatter(raw: str, path: Path | None = None) -> tuple[dict[str, Any], str]:
     lines = raw.splitlines(keepends=True)
     if not lines or lines[0].strip() != "---":
         return {}, raw
 
     for index, line in enumerate(lines[1:], start=1):
         if line.strip() == "---":
-            data = yaml.safe_load("".join(lines[1:index])) or {}
+            try:
+                data = yaml.safe_load("".join(lines[1:index])) or {}
+            except yaml.YAMLError as exc:
+                location = f" in {path}" if path else ""
+                raise ValueError(f"invalid YAML frontmatter{location}: {exc}") from exc
             if not isinstance(data, dict):
                 raise ValueError("frontmatter must be a mapping")
             return data, "".join(lines[index + 1 :])
@@ -198,7 +202,10 @@ def load_settings(path: Path) -> tuple[SettingsDoc, ...]:
 
 
 def parse_settings(path: Path) -> SettingsDoc:
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError as exc:
+        raise ValueError(f"invalid YAML in {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise ValueError(f"settings must be a mapping: {path}")
     return SettingsDoc(name=path.stem, path=path, data=data)

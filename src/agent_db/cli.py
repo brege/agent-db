@@ -130,10 +130,15 @@ def show_memory(args: argparse.Namespace) -> int:
 def build_outputs(args: argparse.Namespace) -> int:
     source = AgentSource.from_roots(defaults_root(), agent_db_home())
     written = claude.write_global(source, claude_home())
-    written.extend(codex.write_global(source, codex_home()))
+    codex_written, skipped = codex.write_global(source, codex_home())
+    written.extend(codex_written)
 
     for path in written:
         print(path)
+
+    if skipped:
+        for pattern in skipped:
+            print(f"warning: pattern not emitted as Codex rule: {pattern}", file=sys.stderr)
 
     return 0
 

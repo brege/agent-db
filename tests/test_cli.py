@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
 from textwrap import dedent
+
+import pytest
 
 from agent_db import cli
 
@@ -103,3 +106,46 @@ def test_agent_db_home_uses_platform_config_dir(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
     assert cli.agent_db_home() == tmp_path / "agent-db"
+
+
+def test_cli_memory_single_agent_claude_json(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / "claude"))
+    monkeypatch.chdir(tmp_path)
+
+    assert cli.main(["--memory", "-a", "claude", "--json"]) == 0
+
+    output = json.loads(capsys.readouterr().out)
+    assert len(output["contexts"]) == 1
+    assert output["contexts"][0]["agent"] == "claude"
+
+
+def test_cli_memory_single_agent_codex_json(tmp_path, monkeypatch, capsys) -> None:
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path / "codex"))
+    monkeypatch.chdir(tmp_path)
+
+    assert cli.main(["--memory", "-a", "codex", "--json"]) == 0
+
+    output = json.loads(capsys.readouterr().out)
+    assert len(output["contexts"]) == 1
+    assert output["contexts"][0]["agent"] == "codex"
+
+
+def test_cli_refresh_memory_combination_rejected() -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--refresh", "--memory"])
+
+    assert exc_info.value.code == 2
+
+
+def test_cli_json_without_memory_rejected() -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--json"])
+
+    assert exc_info.value.code == 2
+
+
+def test_cli_agent_without_memory_rejected() -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["--agent", "claude"])
+
+    assert exc_info.value.code == 2

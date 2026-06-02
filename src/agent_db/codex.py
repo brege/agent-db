@@ -52,7 +52,7 @@ ANY_DEFAULT_PERMISSIONS = re.compile(r'(?m)^default_permissions\s*=\s*".*?"\s*$'
 AGENT_DB_TABLE = re.compile(r"(?ms)^\[permissions\.agent_db(?:\.[^\]]+)?\]\n.*?(?=^\[|\Z)")
 
 
-def write_global(source: AgentSource, codex_home: Path) -> list[Path]:
+def write_global(source: AgentSource, codex_home: Path) -> tuple[list[Path], list[str]]:
     home = codex_home.expanduser().resolve()
     home.mkdir(parents=True, exist_ok=True)
 
@@ -68,10 +68,11 @@ def write_global(source: AgentSource, codex_home: Path) -> list[Path]:
     if write_config(config, render_config(settings)):
         written.append(config)
 
-    written.extend(write_rules(source, home / "rules"))
+    rules_written, skipped = write_rules(source, home / "rules")
+    written.extend(rules_written)
     written.extend(copy_assets(merged_skills(source), home / "skills"))
     written.extend(write_agents(merged_agents(source), home / "agents"))
-    return written
+    return written, skipped
 
 
 def render_agents_md(source: AgentSource, settings: dict[str, Any]) -> str:
@@ -435,27 +436,29 @@ def toml_bool(value: bool) -> str:
     return "true" if value else "false"
 
 
-def write_rules(source: AgentSource, rules_dir: Path) -> list[Path]:
+def write_rules(source: AgentSource, rules_dir: Path) -> tuple[list[Path], list[str]]:
     written: list[Path] = []
+    newly_skipped: list[str] = []
     for layer in source.layers:
         for doc in layer.settings:
-            rules = render_rules(doc_settings(doc).get("permissions", {}))
+            rules, skipped = render_rules(doc_settings(doc).get("permissions", {}))
             if not rules:
                 continue
             rules_dir.mkdir(parents=True, exist_ok=True)
             path = rules_dir / f"{doc.name}.rules"
             if files.write_text(path, rules):
                 written.append(path)
-    return written
+                newly_skipped.extend(skipped)
+    return written, newly_skipped
 
 
-def render_rules(permissions: Any) -> str:
+def render_rules(permissions: Any) -> tuple[str, list[str]]:
     if not isinstance(permissions, dict):
-        return ""
+        return "", []
 
     commands = permissions.get("commands", {})
     if not isinstance(commands, dict):
-        return ""
+        return "", []
 
     blocks: list[str] = []
     skipped: list[str] = []
@@ -472,7 +475,8 @@ def render_rules(permissions: Any) -> str:
 
     if skipped:
         blocks.append(render_skipped_rules(skipped))
-    return "\n\n".join(blocks).strip() + "\n" if blocks else ""
+    rules = "\n\n".join(blocks).strip() + "\n" if blocks else ""
+    return rules, skipped
 
 
 def render_prefix_rule(pattern: list[str], decision: str) -> str:

@@ -309,7 +309,7 @@ def test_codex_path_normalizes_terminal_recursive_glob_to_root() -> None:
 
 
 def test_codex_skips_heredoc_patterns_that_are_not_argv_prefixes() -> None:
-    rules = codex.render_rules(
+    rules, skipped = codex.render_rules(
         {
             "commands": {
                 "deny": [
@@ -323,6 +323,7 @@ def test_codex_skips_heredoc_patterns_that_are_not_argv_prefixes() -> None:
     assert 'pattern = ["python", "<<"]' not in rules
     assert "Codex rules match argv prefixes" in rules
     assert 'pattern = ["sudo"]' in rules
+    assert skipped == ["python << *"]
 
 
 def test_unknown_codex_keys_survive_passthrough() -> None:
@@ -510,3 +511,33 @@ def test_codex_advisory_allows_sandbox_keys() -> None:
     assert 'sandbox_mode = "workspace-write"' in generated
     assert "[sandbox_workspace_write]" in generated
     assert "default_permissions" not in generated
+
+
+def test_render_agent_toml_produces_valid_structure() -> None:
+    result = codex.render_agent_toml("reviewer", "# Review\n\nCheck style.\n")
+
+    assert result.startswith('name = "reviewer"')
+    assert 'instructions = """' in result
+    assert "# Review" in result
+    assert "Check style." in result
+    assert result.endswith('"""\n')
+
+
+def test_write_agents_creates_toml_from_markdown(tmp_path) -> None:
+    from agent_db.source import AssetDir
+
+    agent_dir = tmp_path / "source" / "agents" / "helper"
+    agent_dir.mkdir(parents=True)
+    (agent_dir / "helper.md").write_text("# Helper\n\nDo helpful things.\n", encoding="utf-8")
+
+    agents = (AssetDir(name="helper", path=agent_dir),)
+    target_root = tmp_path / "codex" / "agents"
+
+    written = codex.write_agents(agents, target_root)
+
+    assert len(written) == 1
+    assert written[0].name == "helper.toml"
+    content = written[0].read_text(encoding="utf-8")
+    assert 'name = "helper"' in content
+    assert "# Helper" in content
+    assert "Do helpful things." in content

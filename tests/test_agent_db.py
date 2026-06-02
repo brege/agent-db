@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from textwrap import dedent
 
-from agent_db import claude, codex
+from agent_db import claude, cli, codex
 from agent_db.source import AgentSource
 
 
@@ -120,4 +120,51 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
     assert (codex_home / "skills" / "comment-remover" / "SKILL.md").is_file()
 
     assert claude.write_global(source, claude_home) == []
-    assert codex.write_global(source, codex_home) == []
+    assert codex.write_global(source, codex_home) == ([], [])
+
+
+def test_defaults_tree_produces_valid_output(tmp_path) -> None:
+    user_root = tmp_path / "user"
+    user_root.mkdir()
+
+    source = AgentSource.from_roots(cli.defaults_root(), user_root)
+
+    claude_home = tmp_path / "claude"
+    codex_home = tmp_path / "codex"
+
+    written_claude = claude.write_global(source, claude_home)
+    written_codex, _ = codex.write_global(source, codex_home)
+
+    assert len(written_claude) > 0
+    assert len(written_codex) > 0
+
+    claude_md = (claude_home / "CLAUDE.md").read_text(encoding="utf-8")
+    assert claude_md.startswith("# CLAUDE.md\n")
+    assert "@rules/code.md" in claude_md
+    assert "@rules/commands.md" in claude_md
+    assert "@rules/communication.md" in claude_md
+    assert "@rules/documentation.md" in claude_md
+
+    settings = json.loads((claude_home / "settings.json").read_text(encoding="utf-8"))
+    assert settings.get("sandbox", {}).get("enabled") is True
+    assert len(settings.get("permissions", {}).get("deny", [])) > 0
+
+    assert (claude_home / "skills" / "coding-agent-docs").is_dir()
+    assert (claude_home / "skills" / "coding-agent-docs" / "SKILL.md").is_file()
+
+    agents_md = (codex_home / "AGENTS.md").read_text(encoding="utf-8")
+    assert agents_md.startswith("# AGENTS.md\n")
+
+    assert not (codex_home / "config.toml").exists()
+
+    rules_dir = codex_home / "rules"
+    assert rules_dir.is_dir()
+    rules_files = list(rules_dir.glob("*.rules"))
+    assert len(rules_files) > 0
+
+    assert (codex_home / "skills" / "coding-agent-docs").is_dir()
+    assert (codex_home / "skills" / "coding-agent-docs" / "SKILL.md").is_file()
+
+    assert claude.write_global(source, claude_home) == []
+    codex_written, _ = codex.write_global(source, codex_home)
+    assert codex_written == []
