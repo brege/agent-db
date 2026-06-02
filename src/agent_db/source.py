@@ -1,3 +1,12 @@
+"""Authored settings: YAML parsing, layer merge, and namespace validation.
+
+Loads the dist and user YAML layers, merges them via append/override
+semantics, and validates the resulting dict has only known top-level
+namespaces (permissions, claude, codex). The merged dict is then handed
+to the emitters (claude.py, codex.py) which project it into each
+agent's native config format.
+"""
+
 from __future__ import annotations
 
 import re
@@ -327,3 +336,15 @@ def copy_value(value: Any) -> Any:
     if isinstance(value, list):
         return [copy_value(item) for item in value]
     return value
+
+
+VALID_NAMESPACES = frozenset({"permissions", "claude", "codex"})
+
+
+def validate_namespaces(settings: dict[str, Any]) -> None:
+    unknown = set(settings) - VALID_NAMESPACES
+    if unknown:
+        names = ", ".join(sorted(unknown))
+        raise ValueError(
+            f"unknown top-level settings: {names} (agent settings belong under claude: or codex:)"
+        )

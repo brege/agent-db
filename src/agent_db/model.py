@@ -1,3 +1,9 @@
+"""Shared policy types for permission rules.
+
+Currently unused by the emitters, which derive permissions from raw
+dicts. These types exist as a target for future typed-schema work.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,3 +1,5 @@
+"""Rich/JSON display for the --memory inspection command."""
+
 from __future__ import annotations
 
 from io import StringIO

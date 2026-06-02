@@ -1,3 +1,14 @@
+"""Codex emitter: project merged settings into ~/.codex/.
+
+Pass-through for all keys under codex: except two derived meta-keys:
+  - permissions_profile: controls whether a permissions block is emitted
+  - network: translated into [permissions.agent_db.network] entries
+
+All other codex: keys are serialized as native TOML via the generic
+codex_passthrough() serializer. Adding a new Codex config key is a
+YAML-only change; no Python edit needed.
+"""
+
 from __future__ import annotations
 
 import json
@@ -17,6 +28,7 @@ from agent_db.source import (
     merged_settings,
     merged_skills,
     render_restrictions,
+    validate_namespaces,
 )
 
 DECISION = {
@@ -30,9 +42,11 @@ MANAGED_BEGIN = "# agent-db begin"
 MANAGED_END = "# agent-db end"
 CODEX_PROFILE_ADVISORY = "advisory"
 CODEX_PROFILE_ENFORCE = "enforce"
-CODEX_MODEL_KEYS = ("model", "model_reasoning_effort")
-CODEX_SETTING_KEYS = {*CODEX_MODEL_KEYS, "network", "permissions_profile"}
+CODEX_DERIVED_KEYS = frozenset({"permissions_profile", "network"})
+CODEX_SANDBOX_KEYS = frozenset({"sandbox_mode", "sandbox_workspace_write"})
+BARE_KEY = re.compile(r"^[A-Za-z0-9_-]+$")
 TABLE = re.compile(r"^\s*\[", re.MULTILINE)
+TOP_LEVEL_ASSIGN = re.compile(r"(?m)^([A-Za-z0-9_-]+)\s*=")
 DEFAULT_PERMISSIONS = re.compile(r'(?m)^default_permissions\s*=\s*"agent_db"\s*\n(?:\n)?')
 ANY_DEFAULT_PERMISSIONS = re.compile(r'(?m)^default_permissions\s*=\s*".*?"\s*$')
 AGENT_DB_TABLE = re.compile(r"(?ms)^\[permissions\.agent_db(?:\.[^\]]+)?\]\n.*?(?=^\[|\Z)")
@@ -42,13 +56,16 @@ def write_global(source: AgentSource, codex_home: Path) -> list[Path]:
     home = codex_home.expanduser().resolve()
     home.mkdir(parents=True, exist_ok=True)
 
+    settings = merged_settings(source)
+    validate_namespaces(settings)
+
     written: list[Path] = []
     agents_md = home / "AGENTS.md"
-    if files.write_text(agents_md, render_agents_md(source)):
+    if files.write_text(agents_md, render_agents_md(source, settings)):
         written.append(agents_md)
 
     config = home / "config.toml"
-    if write_config(config, render_config(merged_settings(source))):
+    if write_config(config, render_config(settings)):
         written.append(config)
 
     written.extend(write_rules(source, home / "rules"))
@@ -57,9 +74,9 @@ def write_global(source: AgentSource, codex_home: Path) -> list[Path]:
     return written
 
 
-def render_agents_md(source: AgentSource) -> str:
+def render_agents_md(source: AgentSource, settings: dict[str, Any]) -> str:
     blocks = [render_agents_section(section) for section in assemble_sections(source)]
-    restrictions = render_restrictions(merged_settings(source))
+    restrictions = render_restrictions(settings)
     if restrictions:
         blocks.append(restrictions)
     return "# AGENTS.md\n\n" + "\n\n".join(blocks).strip() + "\n"
@@ -85,8 +102,9 @@ def first_content_line(markdown: str) -> str:
 
 def render_config(settings: dict[str, Any]) -> str:
     codex = codex_settings(settings)
-    lines = codex_model_lines(codex)
+    lines = codex_passthrough(codex)
     profile = codex_permissions_profile(codex)
+    check_sandbox_profile_conflict(codex, profile)
 
     if profile == CODEX_PROFILE_ADVISORY:
         if "network" in codex:
@@ -206,50 +224,100 @@ def clean_blank_lines(*parts: str) -> str:
     return "\n\n".join(blocks) + "\n"
 
 
+TABLE_HEADER = re.compile(r"(?m)^\[([^\]]+)\]")
+
+
 def remove_generated_top_level_keys(config: str, generated: str) -> str:
-    keys = generated_top_level_model_keys(generated)
-    if not keys:
+    scalar_keys = generated_top_level_scalar_keys(generated)
+    table_headers = generated_table_headers(generated)
+    if not scalar_keys and not table_headers:
         return config
 
     match = TABLE.search(config)
     top_level = config[: match.start()] if match is not None else config
     rest = config[match.start() :] if match is not None else ""
-    for key in keys:
+    for key in scalar_keys:
         top_level = re.sub(rf"(?m)^{re.escape(key)}\s*=.*\n?", "", top_level)
+    for header in table_headers:
+        rest = remove_table_section(rest, header)
     return clean_blank_lines(top_level.rstrip(), rest.lstrip())
 
 
-def generated_top_level_model_keys(config: str) -> set[str]:
+def generated_top_level_scalar_keys(config: str) -> set[str]:
     match = TABLE.search(config)
     top_level = config[: match.start()] if match is not None else config
-    return {key for key in CODEX_MODEL_KEYS if re.search(rf"(?m)^{re.escape(key)}\s*=", top_level)}
+    return {m.group(1) for m in TOP_LEVEL_ASSIGN.finditer(top_level)}
+
+
+def generated_table_headers(config: str) -> set[str]:
+    return {m.group(1) for m in TABLE_HEADER.finditer(config)}
+
+
+def remove_table_section(config: str, header: str) -> str:
+    # (?m)^\[header\]\n...until next [header] or end
+    pattern = re.compile(rf"(?m)^\[{re.escape(header)}\]\n(?:(?!\[).*\n?)*")
+    return pattern.sub("", config)
 
 
 def codex_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    reject_top_level_codex_settings(settings)
+    validate_namespaces(settings)
     codex = settings.get("codex", {})
     if not isinstance(codex, dict):
         raise ValueError("codex settings must be a mapping")
     return codex
 
 
-def reject_top_level_codex_settings(settings: dict[str, Any]) -> None:
-    keys = CODEX_SETTING_KEYS.intersection(settings)
-    if keys:
-        names = ", ".join(sorted(keys))
-        raise ValueError(f"move Codex settings to codex: {names}")
-
-
-def codex_model_lines(codex: dict[str, Any]) -> list[str]:
-    lines: list[str] = []
-    for key in CODEX_MODEL_KEYS:
-        value = codex.get(key)
-        if value is None:
+def codex_passthrough(codex: dict[str, Any]) -> list[str]:
+    scalars: list[str] = []
+    tables: list[tuple[str, dict[str, Any]]] = []
+    for key in codex:
+        if key in CODEX_DERIVED_KEYS:
             continue
-        if not isinstance(value, str):
-            raise ValueError(f"codex.{key} must be a string")
-        lines.append(f"{key} = {toml_string(value)}")
+        value = codex[key]
+        if isinstance(value, dict):
+            tables.append((key, value))
+        else:
+            scalars.append(f"{toml_key(key)} = {toml_scalar(value)}")
+    lines = list(scalars)
+    for table_key, table_value in tables:
+        if lines:
+            lines.append("")
+        lines.extend(toml_section(table_key, table_value))
     return lines
+
+
+def toml_section(prefix: str, data: dict[str, Any]) -> list[str]:
+    lines = [f"[{prefix}]"]
+    subtables: list[tuple[str, dict[str, Any]]] = []
+    for key, value in data.items():
+        if isinstance(value, dict):
+            subtables.append((f"{prefix}.{toml_key(key)}", value))
+        else:
+            lines.append(f"{toml_key(key)} = {toml_scalar(value)}")
+    for sub_prefix, sub_value in subtables:
+        lines.append("")
+        lines.extend(toml_section(sub_prefix, sub_value))
+    return lines
+
+
+def toml_scalar(value: Any) -> str:
+    if isinstance(value, bool):
+        return toml_bool(value)
+    if isinstance(value, int):
+        return str(value)
+    if isinstance(value, float):
+        return str(value)
+    if isinstance(value, str):
+        return toml_string(value)
+    if isinstance(value, list):
+        return "[" + ", ".join(toml_scalar(item) for item in value) + "]"
+    raise ValueError(f"unsupported TOML value: {type(value).__name__}")
+
+
+def toml_key(key: str) -> str:
+    if BARE_KEY.match(key):
+        return key
+    return toml_string(key)
 
 
 def render_lines(lines: list[str]) -> str:
@@ -261,6 +329,19 @@ def codex_permissions_profile(codex: dict[str, Any]) -> str:
     if profile not in {CODEX_PROFILE_ADVISORY, CODEX_PROFILE_ENFORCE}:
         raise ValueError("codex.permissions_profile must be advisory or enforce")
     return profile
+
+
+def check_sandbox_profile_conflict(codex: dict[str, Any], profile: str) -> None:
+    if profile != CODEX_PROFILE_ENFORCE:
+        return
+    conflict = CODEX_SANDBOX_KEYS & set(codex)
+    if conflict:
+        names = ", ".join(sorted(conflict))
+        raise ValueError(
+            f"codex.permissions_profile enforce conflicts with sandbox-era keys: {names}"
+            " (configure either default_permissions/[permissions] or"
+            " sandbox_mode/sandbox_workspace_write, not both)"
+        )
 
 
 def codex_network(codex: dict[str, Any]) -> dict[str, str]:

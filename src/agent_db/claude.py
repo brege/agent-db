@@ -1,3 +1,10 @@
+"""Claude emitter: project merged settings into ~/.claude/.
+
+Pass-through for all keys under claude: in the authored YAML. The only
+derived output is the permissions block, translated from the shared
+permissions: namespace into Claude's Bash()/Read()/Edit() rule format.
+"""
+
 from __future__ import annotations
 
 import json
@@ -13,19 +20,21 @@ from agent_db.source import (
     merged_settings,
     merged_skills,
     render_restrictions,
+    validate_namespaces,
 )
 
 AGENT_NAMESPACES = {"claude", "codex"}
-CLAUDE_SETTINGS = {"alwaysThinkingEnabled", "includeCoAuthoredBy", "model"}
 
 
 def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
     home = claude_home.expanduser().resolve()
     home.mkdir(parents=True, exist_ok=True)
 
+    settings_data = merged_settings(source)
+    validate_namespaces(settings_data)
+
     written: list[Path] = []
     sections = assemble_sections(source)
-    settings_data = merged_settings(source)
 
     rules_dir = home / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
@@ -94,7 +103,7 @@ def layer_settings(existing: dict[str, Any], generated: dict[str, Any]) -> dict[
 
 
 def claude_settings(settings: dict[str, Any]) -> dict[str, Any]:
-    reject_top_level_claude_settings(settings)
+    validate_namespaces(settings)
     claude = settings.get("claude", {})
     if not isinstance(claude, dict):
         raise ValueError("claude settings must be a mapping")
@@ -103,13 +112,6 @@ def claude_settings(settings: dict[str, Any]) -> dict[str, Any]:
     if permissions:
         output["permissions"] = permissions
     return output
-
-
-def reject_top_level_claude_settings(settings: dict[str, Any]) -> None:
-    keys = CLAUDE_SETTINGS.intersection(settings)
-    if keys:
-        names = ", ".join(sorted(keys))
-        raise ValueError(f"move Claude settings to claude: {names}")
 
 
 def claude_permissions(permissions: Any) -> dict[str, list[str]]:

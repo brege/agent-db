@@ -1,3 +1,5 @@
+"""CLI entry point: build global configs or inspect agent load order."""
+
 from __future__ import annotations
 
 import argparse

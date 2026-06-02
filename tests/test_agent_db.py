@@ -26,7 +26,7 @@ from agent_db.schema import (
     SettingsSource,
     SourceType,
 )
-from agent_db.source import AgentSource, assemble_sections
+from agent_db.source import AgentSource, assemble_sections, merged_settings
 
 CODEX_PATH_PERMISSIONS = {
     "paths": {
@@ -538,7 +538,6 @@ def test_agent_db_home_uses_platform_config_dir(tmp_path, monkeypatch) -> None:
 def test_claude_settings_use_only_claude_namespace() -> None:
     rendered = claude.claude_settings(
         {
-            "unknown": "ignored",
             "claude": {
                 "model": "claude-opus-4-5-20251101",
                 "alwaysThinkingEnabled": True,
@@ -559,12 +558,29 @@ def test_claude_settings_use_only_claude_namespace() -> None:
     assert rendered["permissions"]["deny"] == ["Bash(sudo:*)"]
     assert "codex" not in rendered
     assert "claude" not in rendered
-    assert "unknown" not in rendered
+
+
+def test_default_claude_settings_enable_strict_sandbox(tmp_path) -> None:
+    user_root = tmp_path / "user"
+    user_root.mkdir()
+
+    source = AgentSource.from_roots(cli.defaults_root(), user_root)
+    rendered = claude.claude_settings(merged_settings(source))
+
+    assert rendered["sandbox"] == {
+        "enabled": True,
+        "failIfUnavailable": True,
+        "autoAllowBashIfSandboxed": True,
+        "allowUnsandboxedCommands": False,
+    }
 
 
 def test_claude_settings_reject_top_level_agent_keys() -> None:
-    with pytest.raises(ValueError, match="claude"):
+    with pytest.raises(ValueError, match="model"):
         claude.claude_settings({"model": "haiku"})
+
+    with pytest.raises(ValueError, match="sandbox"):
+        claude.claude_settings({"sandbox": {"enabled": True}})
 
 
 def test_claude_settings_layer_preserves_unmanaged_existing_keys() -> None:
@@ -656,7 +672,7 @@ def test_codex_config_is_advisory_by_default() -> None:
 
 
 def test_codex_config_rejects_top_level_agent_keys() -> None:
-    with pytest.raises(ValueError, match="codex"):
+    with pytest.raises(ValueError, match="model"):
         codex.render_config({"model": "gpt-5.5"})
 
 
@@ -910,3 +926,172 @@ def test_codex_skips_heredoc_patterns_that_are_not_argv_prefixes() -> None:
     assert 'pattern = ["python", "<<"]' not in rules
     assert "Codex rules match argv prefixes" in rules
     assert 'pattern = ["sudo"]' in rules
+
+
+def test_unknown_claude_keys_survive_passthrough() -> None:
+    rendered = claude.claude_settings(
+        {
+            "claude": {
+                "model": "haiku",
+                "futureSettingBool": True,
+                "futureSettingString": "value",
+                "futureNested": {"deep": "config"},
+            },
+        }
+    )
+
+    assert rendered["model"] == "haiku"
+    assert rendered["futureSettingBool"] is True
+    assert rendered["futureSettingString"] == "value"
+    assert rendered["futureNested"] == {"deep": "config"}
+
+
+def test_unknown_codex_keys_survive_passthrough() -> None:
+    generated = codex.render_config(
+        {
+            "codex": {
+                "model": "gpt-5.5",
+                "model_reasoning_effort": "xhigh",
+                "sandbox_mode": "workspace-write",
+                "check_for_update_on_startup": False,
+                "sandbox_workspace_write": {
+                    "network_access": True,
+                    "writable_roots": ["/home/user/code"],
+                },
+            },
+        }
+    )
+
+    assert 'model = "gpt-5.5"' in generated
+    assert 'model_reasoning_effort = "xhigh"' in generated
+    assert 'sandbox_mode = "workspace-write"' in generated
+    assert "check_for_update_on_startup = false" in generated
+    assert "[sandbox_workspace_write]" in generated
+    assert "network_access = true" in generated
+    assert 'writable_roots = ["/home/user/code"]' in generated
+
+
+def test_namespace_validation_rejects_any_unknown_top_level_key() -> None:
+    with pytest.raises(ValueError, match="typo"):
+        claude.claude_settings({"typo": "value"})
+
+    with pytest.raises(ValueError, match="typo"):
+        codex.render_config({"typo": "value"})
+
+
+def test_codex_enforce_rejects_sandbox_era_keys() -> None:
+    with pytest.raises(ValueError, match="sandbox_mode"):
+        codex.render_config(
+            {
+                "codex": {
+                    "model": "gpt-5.5",
+                    "sandbox_mode": "workspace-write",
+                    "permissions_profile": "enforce",
+                    "network": {"enabled": False},
+                },
+                "permissions": CODEX_PATH_PERMISSIONS,
+            }
+        )
+
+    with pytest.raises(ValueError, match="sandbox_workspace_write"):
+        codex.render_config(
+            {
+                "codex": {
+                    "permissions_profile": "enforce",
+                    "sandbox_workspace_write": {"writable_roots": ["/tmp"]},
+                },
+            }
+        )
+
+
+def test_codex_enforce_without_sandbox_keys_emits_permissions() -> None:
+    generated = codex.render_config(
+        {
+            "codex": {
+                "model": "gpt-5.5",
+                "permissions_profile": "enforce",
+                "network": {"enabled": False},
+            },
+            "permissions": CODEX_PATH_PERMISSIONS,
+        }
+    )
+
+    assert 'model = "gpt-5.5"' in generated
+    assert "sandbox_mode" not in generated
+    assert 'default_permissions = "agent_db"' in generated
+    assert "[permissions.agent_db.filesystem]" in generated
+    assert "[permissions.agent_db.network]" in generated
+
+
+def test_codex_layering_strips_existing_tables_matching_generated() -> None:
+    existing = dedent(
+        """\
+        model = "gpt-5.5"
+        check_for_update_on_startup = false
+
+        [sandbox_workspace_write]
+        network_access = true
+        writable_roots = ["/home/user/code"]
+        """
+    )
+    generated = dedent(
+        """\
+        model = "o3"
+        check_for_update_on_startup = true
+
+        [sandbox_workspace_write]
+        network_access = false
+        writable_roots = ["/tmp"]
+        """
+    )
+
+    layered = codex.layer_config(existing, generated)
+
+    assert layered.count("[sandbox_workspace_write]") == 1
+    assert 'model = "gpt-5.5"' not in layered
+    assert 'model = "o3"' in layered
+
+
+def test_codex_layering_preserves_unrelated_tables() -> None:
+    existing = dedent(
+        """\
+        model = "gpt-5.5"
+
+        [profiles.custom]
+        some_key = "value"
+        """
+    )
+    generated = dedent(
+        """\
+        model = "o3"
+
+        [sandbox_workspace_write]
+        network_access = false
+        """
+    )
+
+    layered = codex.layer_config(existing, generated)
+
+    assert "[profiles.custom]" in layered
+    assert 'some_key = "value"' in layered
+    assert "[sandbox_workspace_write]" in layered
+    assert layered.count("[sandbox_workspace_write]") == 1
+
+
+def test_codex_advisory_allows_sandbox_keys() -> None:
+    generated = codex.render_config(
+        {
+            "codex": {
+                "model": "gpt-5.5",
+                "sandbox_mode": "workspace-write",
+                "sandbox_workspace_write": {
+                    "network_access": True,
+                    "writable_roots": ["/home/user/code"],
+                },
+            },
+        }
+    )
+
+    assert 'sandbox_mode = "workspace-write"' in generated
+    assert "[sandbox_workspace_write]" in generated
+    assert "default_permissions" not in generated

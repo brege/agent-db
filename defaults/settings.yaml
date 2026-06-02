@@ -3,4 +3,9 @@ append:
     includeCoAuthoredBy: false
     model: haiku
     alwaysThinkingEnabled: true
+    sandbox:
+      enabled: true
+      failIfUnavailable: true
+      autoAllowBashIfSandboxed: true
+      allowUnsandboxedCommands: false
   permissions: {}

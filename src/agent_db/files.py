@@ -1,3 +1,5 @@
+"""Idempotent file writes: only touch disk when content changes."""
+
 from __future__ import annotations
 
 import filecmp

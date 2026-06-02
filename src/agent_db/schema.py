@@ -1,3 +1,11 @@
+"""Filesystem discovery: what files each agent loads and in what order.
+
+Models the on-disk layout (CLAUDE.md, settings.json, config.toml, rules,
+skills, agents) and computes load precedence per agent. Does not parse or
+validate settings content; that belongs to source.py (merge/validation)
+and the emitters (claude.py, codex.py).
+"""
+
 from __future__ import annotations
 
 import ast
