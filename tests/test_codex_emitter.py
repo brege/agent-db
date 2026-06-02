@@ -350,6 +350,50 @@ def test_unknown_codex_keys_survive_passthrough() -> None:
     assert 'writable_roots = ["/home/user/code"]' in generated
 
 
+def test_codex_passthrough_emits_array_of_tables() -> None:
+    generated = codex.render_config(
+        {
+            "codex": {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "^Bash$",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "check-policy.py",
+                                    "timeout": 30,
+                                },
+                            ],
+                        },
+                    ],
+                    "PostToolUse": [
+                        {
+                            "matcher": "^Bash$",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "review.py",
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        }
+    )
+
+    assert "[[hooks.PreToolUse]]" in generated
+    assert 'matcher = "^Bash$"' in generated
+    assert "[[hooks.PreToolUse.hooks]]" in generated
+    assert 'type = "command"' in generated
+    assert 'command = "check-policy.py"' in generated
+    assert "timeout = 30" in generated
+    assert "[[hooks.PostToolUse]]" in generated
+    assert "[[hooks.PostToolUse.hooks]]" in generated
+    assert 'command = "review.py"' in generated
+
+
 def test_codex_enforce_rejects_sandbox_era_keys() -> None:
     with pytest.raises(ValueError, match="sandbox_mode"):
         codex.render_config(

@@ -128,6 +128,18 @@ and one-off tokens from interactive sessions.
 | `~/.zsh_history` | Zsh command history |
 | `~/.local/share/fish/fish_history` | Fish shell history |
 
+### Browser and application profiles
+
+Desktop application data directories that may contain session cookies,
+saved passwords, or OAuth tokens.
+
+| Path | Contents |
+|---|---|
+| `~/.var/app/**` | Flatpak application data |
+| `~/.mozilla/**` | Firefox profiles, cookies, saved logins |
+| `~/.thunderbird/**` | Thunderbird mail profiles and credentials |
+| `~/.config/chromium/**` | Chromium profiles, cookies, saved logins |
+
 
 ## What the defaults do not cover
 
@@ -135,8 +147,6 @@ The dist defaults deliberately omit:
 
 - **Personal directories** (`~/Documents`, `~/Pictures`, etc.). These vary
   by user and belong in your user-layer settings.
-- **Browser profiles** (`~/.mozilla`, `~/.config/chromium`). Same
-  reasoning: user-specific.
 - **Network egress control**. Claude Code supports domain allowlists via
   `sandbox.network.allowedDomains`, but the right allowlist depends on
   your stack. The dist layer does not restrict network access.

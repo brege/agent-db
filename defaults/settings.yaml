@@ -49,3 +49,11 @@ append:
           permissions: [read, edit, write]
         - path: "~/.local/share/fish/fish_history"
           permissions: [read, edit, write]
+        - path: "~/.var/app/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.mozilla/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.thunderbird/**"
+          permissions: [read, edit, write, glob]
+        - path: "~/.config/chromium/**"
+          permissions: [read, edit, write, glob]

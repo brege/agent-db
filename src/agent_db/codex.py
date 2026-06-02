@@ -269,34 +269,67 @@ def codex_settings(settings: dict[str, Any]) -> dict[str, Any]:
 
 def codex_passthrough(codex: dict[str, Any]) -> list[str]:
     scalars: list[str] = []
-    tables: list[tuple[str, dict[str, Any]]] = []
+    structured: list[tuple[str, Any]] = []
     for key in codex:
         if key in CODEX_DERIVED_KEYS:
             continue
         value = codex[key]
         if isinstance(value, dict):
-            tables.append((key, value))
+            structured.append((key, value))
+        elif isinstance(value, list) and value and isinstance(value[0], dict):
+            structured.append((key, value))
         else:
             scalars.append(f"{toml_key(key)} = {toml_scalar(value)}")
     lines = list(scalars)
-    for table_key, table_value in tables:
+    for key, value in structured:
         if lines:
             lines.append("")
-        lines.extend(toml_section(table_key, table_value))
+        if isinstance(value, dict):
+            lines.extend(toml_section(key, value))
+        else:
+            lines.extend(toml_array_of_tables(key, value))
     return lines
 
 
 def toml_section(prefix: str, data: dict[str, Any]) -> list[str]:
     lines = [f"[{prefix}]"]
-    subtables: list[tuple[str, dict[str, Any]]] = []
+    subtables: list[tuple[str, Any]] = []
     for key, value in data.items():
         if isinstance(value, dict):
             subtables.append((f"{prefix}.{toml_key(key)}", value))
+        elif isinstance(value, list) and value and isinstance(value[0], dict):
+            subtables.append((f"{prefix}.{toml_key(key)}", value))
         else:
             lines.append(f"{toml_key(key)} = {toml_scalar(value)}")
-    for sub_prefix, sub_value in subtables:
+    for sub_key, sub_value in subtables:
         lines.append("")
-        lines.extend(toml_section(sub_prefix, sub_value))
+        if isinstance(sub_value, dict):
+            lines.extend(toml_section(sub_key, sub_value))
+        else:
+            lines.extend(toml_array_of_tables(sub_key, sub_value))
+    return lines
+
+
+def toml_array_of_tables(prefix: str, items: list[dict[str, Any]]) -> list[str]:
+    lines: list[str] = []
+    for item in items:
+        if lines:
+            lines.append("")
+        lines.append(f"[[{prefix}]]")
+        subtables: list[tuple[str, Any]] = []
+        for key, value in item.items():
+            if isinstance(value, dict):
+                subtables.append((f"{prefix}.{toml_key(key)}", value))
+            elif isinstance(value, list) and value and isinstance(value[0], dict):
+                subtables.append((f"{prefix}.{toml_key(key)}", value))
+            else:
+                lines.append(f"{toml_key(key)} = {toml_scalar(value)}")
+        for sub_key, sub_value in subtables:
+            lines.append("")
+            if isinstance(sub_value, dict):
+                lines.extend(toml_section(sub_key, sub_value))
+            else:
+                lines.extend(toml_array_of_tables(sub_key, sub_value))
     return lines
 
 
@@ -310,6 +343,8 @@ def toml_scalar(value: Any) -> str:
     if isinstance(value, str):
         return toml_string(value)
     if isinstance(value, list):
+        if value and isinstance(value[0], dict):
+            raise ValueError("use toml_array_of_tables for list of dicts")
         return "[" + ", ".join(toml_scalar(item) for item in value) + "]"
     raise ValueError(f"unsupported TOML value: {type(value).__name__}")
 

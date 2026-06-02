@@ -2,8 +2,6 @@ append:
   permissions:
     commands:
       deny:
-        - "sudo *"
-        - "su *"
         - "cargo install *"
         - "go install *"
         - "uv pip install *"
