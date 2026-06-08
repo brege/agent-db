@@ -26,6 +26,7 @@ class Instruction:
     key: str
     title: str
     override: bool
+    claude_output_style: bool
     path: Path
     body: str
 
@@ -35,6 +36,10 @@ class Section:
     key: str
     title: str
     instructions: tuple[Instruction, ...]
+
+    @property
+    def claude_output_style(self) -> bool:
+        return any(instruction.claude_output_style for instruction in self.instructions)
 
     @property
     def body(self) -> str:
@@ -130,6 +135,7 @@ def parse_instruction(path: Path) -> Instruction:
         key=slug(title),
         title=title,
         override=bool(frontmatter.get("override", False)),
+        claude_output_style=bool(frontmatter.get("claude_output_style", False)),
         path=path,
         body=body.lstrip("\n"),
     )

@@ -61,6 +61,31 @@ def test_instructions_use_title_filename_h1_order_and_default_append(tmp_path) -
     assert sections["special-case"].title == "Special Case"
 
 
+def test_instruction_frontmatter_marks_claude_output_style(tmp_path) -> None:
+    source_root = tmp_path / "source"
+    (source_root / "dist" / "instructions").mkdir(parents=True)
+    (source_root / "dist" / "instructions" / "communication.md").write_text(
+        dedent(
+            """\
+            ---
+            title: Communication
+            claude_output_style: true
+            ---
+
+            # Communication
+
+            style rules
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    source = AgentSource.from_root(source_root)
+    sections = {section.key: section for section in assemble_sections(source)}
+
+    assert sections["communication"].claude_output_style is True
+
+
 def test_namespace_validation_rejects_any_unknown_top_level_key() -> None:
     with pytest.raises(ValueError, match="typo"):
         claude.claude_settings({"typo": "value"})

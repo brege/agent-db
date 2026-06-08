@@ -24,6 +24,8 @@ from agent_db.source import (
 )
 
 AGENT_NAMESPACES = {"claude", "codex"}
+OUTPUT_STYLE_FILE = "agent-db.md"
+OUTPUT_STYLE_NAME = "Agent DB"
 
 
 def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
@@ -35,10 +37,12 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
 
     written: list[Path] = []
     sections = assemble_sections(source)
+    claude_md_sections = tuple(section for section in sections if not section.claude_output_style)
+    output_style_sections = tuple(section for section in sections if section.claude_output_style)
 
     rules_dir = home / "rules"
     rules_dir.mkdir(parents=True, exist_ok=True)
-    for section in sections:
+    for section in claude_md_sections:
         path = rules_dir / f"{section.key}.md"
         if files.write_text(path, section.body):
             written.append(path)
@@ -50,12 +54,18 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
             written.append(path)
 
     claude_md = home / "CLAUDE.md"
-    rendered = render_claude_md(sections, include_permissions=bool(permissions))
+    rendered = render_claude_md(claude_md_sections, include_permissions=bool(permissions))
     if files.write_text(claude_md, rendered):
         written.append(claude_md)
 
+    output_style = output_style_name(output_style_sections)
+    if output_style is not None:
+        path = home / "output-styles" / OUTPUT_STYLE_FILE
+        if files.write_text(path, render_output_style(output_style_sections)):
+            written.append(path)
+
     settings = home / "settings.json"
-    if write_settings(settings, settings_data):
+    if write_settings(settings, settings_data, output_style=output_style):
         written.append(settings)
 
     written.extend(copy_assets(merged_skills(source), home / "skills"))
@@ -72,13 +82,30 @@ def render_claude_md(sections: Any, include_permissions: bool = False) -> str:
     return "\n\n".join(blocks).strip() + "\n"
 
 
-def render_settings(settings: dict[str, Any]) -> str:
-    return json.dumps(claude_settings(settings), indent=2) + "\n"
+def render_output_style(sections: Any) -> str:
+    blocks = [
+        "---",
+        f"name: {OUTPUT_STYLE_NAME}",
+        "description: Generated communication defaults from agent-db",
+        "keep-coding-instructions: true",
+        "---",
+    ]
+    for section in sections:
+        blocks.append(section.body.strip())
+    return "\n\n".join(blocks).strip() + "\n"
 
 
-def write_settings(path: Path, settings: dict[str, Any]) -> bool:
+def output_style_name(sections: Any) -> str | None:
+    return OUTPUT_STYLE_NAME if sections else None
+
+
+def render_settings(settings: dict[str, Any], output_style: str | None = None) -> str:
+    return json.dumps(claude_settings(settings, output_style=output_style), indent=2) + "\n"
+
+
+def write_settings(path: Path, settings: dict[str, Any], output_style: str | None = None) -> bool:
     existing = read_settings(path)
-    layered = layer_settings(existing, claude_settings(settings))
+    layered = layer_settings(existing, claude_settings(settings, output_style=output_style))
     return files.write_text(path, json.dumps(layered, indent=2) + "\n")
 
 
@@ -102,12 +129,14 @@ def layer_settings(existing: dict[str, Any], generated: dict[str, Any]) -> dict[
     return output
 
 
-def claude_settings(settings: dict[str, Any]) -> dict[str, Any]:
+def claude_settings(settings: dict[str, Any], output_style: str | None = None) -> dict[str, Any]:
     validate_namespaces(settings)
     claude = settings.get("claude", {})
     if not isinstance(claude, dict):
         raise ValueError("claude settings must be a mapping")
     output = deepcopy(claude)
+    if output_style is not None and "outputStyle" not in output:
+        output["outputStyle"] = output_style
     permissions = claude_permissions(settings.get("permissions", {}))
     if permissions:
         output["permissions"] = permissions

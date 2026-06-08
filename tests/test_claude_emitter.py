@@ -115,3 +115,16 @@ def test_unknown_claude_keys_survive_passthrough() -> None:
     assert rendered["futureSettingBool"] is True
     assert rendered["futureSettingString"] == "value"
     assert rendered["futureNested"] == {"deep": "config"}
+
+
+def test_explicit_claude_output_style_wins_over_generated_default() -> None:
+    rendered = claude.claude_settings(
+        {
+            "claude": {
+                "outputStyle": "Custom Style",
+            },
+        },
+        output_style="Agent DB",
+    )
+
+    assert rendered["outputStyle"] == "Custom Style"

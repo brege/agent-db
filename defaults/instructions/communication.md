@@ -1,6 +1,7 @@
 ---
 title: Communication  
 override: true  
+claude_output_style: true  
 ---
 
 # Communication

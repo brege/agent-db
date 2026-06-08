@@ -142,11 +142,16 @@ def test_defaults_tree_produces_valid_output(tmp_path) -> None:
     assert claude_md.startswith("# CLAUDE.md\n")
     assert "@rules/code.md" in claude_md
     assert "@rules/commands.md" in claude_md
-    assert "@rules/communication.md" in claude_md
+    assert "@rules/communication.md" not in claude_md
     assert "@rules/documentation.md" in claude_md
+
+    output_style = (claude_home / "output-styles" / "agent-db.md").read_text(encoding="utf-8")
+    assert "name: Agent DB" in output_style
+    assert "# Communication" in output_style
 
     settings = json.loads((claude_home / "settings.json").read_text(encoding="utf-8"))
     assert settings.get("sandbox", {}).get("enabled") is True
+    assert settings.get("outputStyle") == "Agent DB"
     assert len(settings.get("permissions", {}).get("deny", [])) > 0
 
     assert (claude_home / "skills" / "coding-agent-docs").is_dir()
@@ -154,6 +159,7 @@ def test_defaults_tree_produces_valid_output(tmp_path) -> None:
 
     agents_md = (codex_home / "AGENTS.md").read_text(encoding="utf-8")
     assert agents_md.startswith("# AGENTS.md\n")
+    assert "## Communication" in agents_md
 
     assert not (codex_home / "config.toml").exists()
 
