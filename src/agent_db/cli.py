@@ -12,6 +12,7 @@ from rich.console import Console
 
 from agent_db import __version__, claude, codex
 from agent_db.display import MemoryPayload, loaded_context_model, print_loaded_context
+from agent_db.project import find_git_root, load_config, sync_skills
 from agent_db.schema import Agent, claude_load_order, codex_load_order
 from agent_db.source import AgentSource
 
@@ -26,6 +27,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="version",
         version=f"%(prog)s {__version__}",
     )
+
+    sub = parser.add_subparsers(dest="command")
+    sync_parser = sub.add_parser("sync", help="sync project skills from agent-db.toml")
+    sync_parser.add_argument(
+        "--root",
+        type=Path,
+        default=None,
+        help="project root (default: git root or cwd)",
+    )
+
     parser.add_argument(
         "-m",
         "--memory",
@@ -65,6 +76,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.command == "sync":
+        return run_sync(args)
 
     if args.refresh_docs:
         if args.show_memory:
@@ -140,6 +154,19 @@ def build_outputs(args: argparse.Namespace) -> int:
         for pattern in skipped:
             print(f"warning: pattern not emitted as Codex rule: {pattern}", file=sys.stderr)
 
+    return 0
+
+
+def run_sync(args: argparse.Namespace) -> int:
+    root = args.root or find_git_root() or Path.cwd()
+    root = root.resolve()
+    config = load_config(root)
+    if config.skills is None:
+        print(f"no [skills] table in {root / 'agent-db.toml'}", file=sys.stderr)
+        return 1
+    written = sync_skills(config)
+    for path in written:
+        print(path)
     return 0
 
 
