@@ -11,11 +11,9 @@ These command restrictions are mandatory. Do not run these forms, even when loca
 
 The shell is for invoking programs, not for producing text. Do not use a Bash command to emit, assemble, format, or redirect authored content (file bodies, code, config, documents, multi-line messages, or the labeled output of other commands). Producing content is the job of the Write and Edit tools.
 
-This is about what the command carries, not which command it names. The prohibition holds whether the lines are separated by real newlines inside quotes, by `\n` escapes, or by repeated append commands. Reaching for a command not named below does not make the behavior allowed.
+In general, run one shell command at a time with at most one pipe.
 
-Test: if a command's purpose is to produce, format, or decorate text rather than to run a program against existing files or data, it is prohibited regardless of syntax or length. This includes using `echo` or `printf` for section headers, labels, separators, or banners, and chaining `echo`/`printf` with other commands (via `&&`, `;`, or `|`) to assemble labeled or multi-section output. Run each program on its own and let its real output stand.
-
-`echo` and `printf` are permitted only as the entire command, to pass or inspect a single value (for example `echo "$VAR"`). They are never one segment of a chain, and never a tool for authoring output.
+Do not assemble large print structures through shell commands.
 
 ## Prohibited forms
 
