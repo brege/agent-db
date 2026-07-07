@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import subprocess
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
-from agent_db.claude import copy_assets
-from agent_db.source import load_asset_dirs
+from agent_db import files
 
 
 @dataclass(frozen=True)
@@ -21,6 +20,19 @@ class SkillsConfig:
 class ProjectConfig:
     root: Path
     skills: SkillsConfig | None
+
+
+@dataclass(frozen=True)
+class SyncFailure:
+    target: Path
+    path: Path
+    error: str
+
+
+@dataclass(frozen=True)
+class SyncResult:
+    written: list[Path] = field(default_factory=list)
+    failures: list[SyncFailure] = field(default_factory=list)
 
 
 def load_config(root: Path) -> ProjectConfig:
@@ -58,19 +70,33 @@ def load_config(root: Path) -> ProjectConfig:
     )
 
 
-def sync_skills(config: ProjectConfig) -> list[Path]:
+def sync_skills(config: ProjectConfig) -> SyncResult:
     if config.skills is None:
-        return []
+        return SyncResult()
 
     source = config.skills.source
     if not source.is_dir():
         raise FileNotFoundError(f"skills source not found: {source}")
 
-    assets = load_asset_dirs(source)
+    sources = source_files(source)
     written: list[Path] = []
+    failures: list[SyncFailure] = []
     for target in config.skills.targets:
-        written.extend(copy_assets(assets, target))
-    return written
+        for source_file, relative in sources:
+            target_file = target / relative
+            try:
+                if files.copy_file(source_file, target_file):
+                    written.append(target_file)
+            except OSError as exc:
+                failures.append(SyncFailure(target=target, path=target_file, error=str(exc)))
+    return SyncResult(written=written, failures=failures)
+
+
+def source_files(source: Path) -> list[tuple[Path, Path]]:
+    """Every file under source paired with its path relative to source."""
+    return [
+        (path, path.relative_to(source)) for path in sorted(source.rglob("*")) if path.is_file()
+    ]
 
 
 def find_git_root(start: Path | None = None) -> Path | None:

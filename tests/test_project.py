@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -57,7 +58,9 @@ class TestLoadConfig:
 class TestSyncSkills:
     def test_no_config(self, tmp_path: Path) -> None:
         config = ProjectConfig(root=tmp_path, skills=None)
-        assert sync_skills(config) == []
+        result = sync_skills(config)
+        assert result.written == []
+        assert result.failures == []
 
     def test_source_missing(self, tmp_path: Path) -> None:
         config = ProjectConfig(
@@ -77,8 +80,9 @@ class TestSyncSkills:
             root=tmp_path,
             skills=SkillsConfig(source=source, targets=(target_a, target_b)),
         )
-        written = sync_skills(config)
-        assert len(written) == 2
+        result = sync_skills(config)
+        assert len(result.written) == 2
+        assert result.failures == []
         assert (target_a / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
         assert (target_b / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
 
@@ -92,9 +96,9 @@ class TestSyncSkills:
             skills=SkillsConfig(source=source, targets=(target,)),
         )
         first = sync_skills(config)
-        assert len(first) == 1
+        assert len(first.written) == 1
         second = sync_skills(config)
-        assert second == []
+        assert second.written == []
 
     def test_copies_nested_files(self, tmp_path: Path) -> None:
         source = tmp_path / "source"
@@ -112,3 +116,53 @@ class TestSyncSkills:
         sync_skills(config)
         assert (target / "review" / "SKILL.md").read_text() == "# Review\n"
         assert (target / "review" / "references" / "template.md").read_text() == "# Template\n"
+
+    def test_copies_top_level_files_to_all_targets(self, tmp_path: Path) -> None:
+        source = tmp_path / "source"
+        _make_skill(source, "my-skill", "# My Skill\n")
+        (source / "README.md").write_text("readme\n", encoding="utf-8")
+        (source / "artifacts.md").write_text("artifacts\n", encoding="utf-8")
+
+        target_a = tmp_path / "a"
+        target_b = tmp_path / "b"
+        config = ProjectConfig(
+            root=tmp_path,
+            skills=SkillsConfig(source=source, targets=(target_a, target_b)),
+        )
+        result = sync_skills(config)
+        assert result.failures == []
+        for target in (target_a, target_b):
+            assert (target / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
+            assert (target / "README.md").read_text() == "readme\n"
+            assert (target / "artifacts.md").read_text() == "artifacts\n"
+
+    def test_unwritable_file_does_not_stop_other_files_or_targets(self, tmp_path: Path) -> None:
+        source = tmp_path / "source"
+        _make_skill(source, "my-skill", "# My Skill\n")
+        (source / "README.md").write_text("readme\n", encoding="utf-8")
+
+        target_a = tmp_path / "a"
+        target_b = tmp_path / "b"
+        # A read-only subdir in the first target blocks creating its SKILL.md
+        blocked = target_a / "my-skill"
+        blocked.mkdir(parents=True)
+        os.chmod(blocked, 0o555)
+        try:
+            config = ProjectConfig(
+                root=tmp_path,
+                skills=SkillsConfig(source=source, targets=(target_a, target_b)),
+            )
+            result = sync_skills(config)
+
+            assert len(result.failures) == 1
+            failure = result.failures[0]
+            assert failure.target == target_a
+            assert failure.path == target_a / "my-skill" / "SKILL.md"
+
+            # Sibling file in the failing target still lands
+            assert (target_a / "README.md").read_text() == "readme\n"
+            # Second target is unaffected
+            assert (target_b / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
+            assert (target_b / "README.md").read_text() == "readme\n"
+        finally:
+            os.chmod(blocked, 0o755)

@@ -12,7 +12,7 @@ from rich.console import Console
 
 from agent_db import __version__, claude, codex
 from agent_db.display import MemoryPayload, loaded_context_model, print_loaded_context
-from agent_db.project import find_git_root, load_config, sync_skills
+from agent_db.project import SyncFailure, find_git_root, load_config, sync_skills
 from agent_db.schema import Agent, claude_load_order, codex_load_order
 from agent_db.source import AgentSource
 
@@ -164,10 +164,23 @@ def run_sync(args: argparse.Namespace) -> int:
     if config.skills is None:
         print(f"no [skills] table in {root / 'agent-db.toml'}", file=sys.stderr)
         return 1
-    written = sync_skills(config)
-    for path in written:
+    result = sync_skills(config)
+    for path in result.written:
         print(path)
+    if result.failures:
+        print_sync_failures(result.failures)
+        return 1
     return 0
+
+
+def print_sync_failures(failures: list[SyncFailure]) -> None:
+    by_target: dict[Path, list[SyncFailure]] = {}
+    for failure in failures:
+        by_target.setdefault(failure.target, []).append(failure)
+    for target, items in by_target.items():
+        print(f"failed to sync {len(items)} file(s) to {target}:", file=sys.stderr)
+        for item in items:
+            print(f"  {item.path}: {item.error}", file=sys.stderr)
 
 
 def refresh_docs() -> int:

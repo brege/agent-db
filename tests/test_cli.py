@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from textwrap import dedent
 
 import pytest
@@ -149,3 +150,49 @@ def test_cli_agent_without_memory_rejected() -> None:
         cli.main(["--agent", "claude"])
 
     assert exc_info.value.code == 2
+
+
+def test_cli_sync_reports_failures_and_exits_nonzero(tmp_path, capsys) -> None:
+    root = tmp_path / "project"
+    source = root / "src"
+    (source / "my-skill").mkdir(parents=True)
+    (source / "my-skill" / "SKILL.md").write_text("# My Skill\n", encoding="utf-8")
+    (source / "README.md").write_text("readme\n", encoding="utf-8")
+    (root / "agent-db.toml").write_text(
+        '[skills]\nsource = "src"\ntargets = ["a", "b"]\n',
+        encoding="utf-8",
+    )
+
+    blocked = root / "a" / "my-skill"
+    blocked.mkdir(parents=True)
+    os.chmod(blocked, 0o555)
+    try:
+        assert cli.main(["sync", "--root", str(root)]) == 1
+
+        captured = capsys.readouterr()
+        assert "failed to sync 1 file(s) to" in captured.err
+        assert str(root / "a" / "my-skill" / "SKILL.md") in captured.err
+        # The unaffected target still received every file
+        assert (root / "b" / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
+        assert (root / "b" / "README.md").read_text() == "readme\n"
+        assert str(root / "b" / "README.md") in captured.out
+    finally:
+        os.chmod(blocked, 0o755)
+
+
+def test_cli_sync_success_exits_zero(tmp_path, capsys) -> None:
+    root = tmp_path / "project"
+    source = root / "src"
+    (source / "my-skill").mkdir(parents=True)
+    (source / "my-skill" / "SKILL.md").write_text("# My Skill\n", encoding="utf-8")
+    (source / "README.md").write_text("readme\n", encoding="utf-8")
+    (root / "agent-db.toml").write_text(
+        '[skills]\nsource = "src"\ntargets = ["a", "b"]\n',
+        encoding="utf-8",
+    )
+
+    assert cli.main(["sync", "--root", str(root)]) == 0
+    assert capsys.readouterr().err == ""
+    for target in ("a", "b"):
+        assert (root / target / "README.md").read_text() == "readme\n"
+        assert (root / target / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
