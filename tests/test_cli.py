@@ -196,3 +196,24 @@ def test_cli_sync_success_exits_zero(tmp_path, capsys) -> None:
     for target in ("a", "b"):
         assert (root / target / "README.md").read_text() == "readme\n"
         assert (root / target / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
+
+
+def test_cli_sync_prints_pruned_paths(tmp_path, capsys) -> None:
+    root = tmp_path / "project"
+    source = root / "src"
+    (source / "my-skill").mkdir(parents=True)
+    (source / "my-skill" / "SKILL.md").write_text("# My Skill\n", encoding="utf-8")
+    (root / "agent-db.toml").write_text(
+        '[skills]\nsource = "src"\ntargets = ["a"]\n',
+        encoding="utf-8",
+    )
+    stale = root / "a" / "old-skill"
+    stale.mkdir(parents=True)
+    (stale / "SKILL.md").write_text("# Old\n", encoding="utf-8")
+
+    assert cli.main(["sync", "--root", str(root)]) == 0
+
+    captured = capsys.readouterr()
+    assert f"removed {stale / 'SKILL.md'}" in captured.out
+    assert f"removed {stale}" in captured.out
+    assert not stale.exists()

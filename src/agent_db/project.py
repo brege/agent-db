@@ -1,4 +1,4 @@
-"""Project-level skill sync: read agent-db.toml, copy skills to targets."""
+"""Project-level skill sync: read agent-db.toml, copy skills to targets, prune stale files."""
 
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ class SyncFailure:
 @dataclass(frozen=True)
 class SyncResult:
     written: list[Path] = field(default_factory=list)
+    removed: list[Path] = field(default_factory=list)
     failures: list[SyncFailure] = field(default_factory=list)
 
 
@@ -79,7 +80,9 @@ def sync_skills(config: ProjectConfig) -> SyncResult:
         raise FileNotFoundError(f"skills source not found: {source}")
 
     sources = source_files(source)
+    expected = {relative for _, relative in sources}
     written: list[Path] = []
+    removed: list[Path] = []
     failures: list[SyncFailure] = []
     for target in config.skills.targets:
         for source_file, relative in sources:
@@ -89,7 +92,41 @@ def sync_skills(config: ProjectConfig) -> SyncResult:
                     written.append(target_file)
             except OSError as exc:
                 failures.append(SyncFailure(target=target, path=target_file, error=str(exc)))
-    return SyncResult(written=written, failures=failures)
+        target_removed, target_failures = prune_stale(target, expected)
+        removed.extend(target_removed)
+        failures.extend(target_failures)
+    return SyncResult(written=written, removed=removed, failures=failures)
+
+
+def prune_stale(target: Path, expected: set[Path]) -> tuple[list[Path], list[SyncFailure]]:
+    """Delete target files absent from the source tree, then any emptied stale directories.
+
+    Deepest paths first, so files go before their directories and nested empty
+    directories collapse upward in one pass. Directories that are ancestors of
+    expected files are kept even when empty (a failed copy must not cascade
+    into removing the skill directory it was meant to fill).
+    """
+    removed: list[Path] = []
+    failures: list[SyncFailure] = []
+    if not target.is_dir():
+        return removed, failures
+    expected_dirs: set[Path] = set()
+    for relative in expected:
+        expected_dirs.update(relative.parents)
+    for path in sorted(target.rglob("*"), reverse=True):
+        try:
+            if path.is_file():
+                if path.relative_to(target) not in expected:
+                    path.unlink()
+                    removed.append(path)
+            elif path.is_dir():
+                relative = path.relative_to(target)
+                if relative not in expected_dirs and not any(path.iterdir()):
+                    path.rmdir()
+                    removed.append(path)
+        except OSError as exc:
+            failures.append(SyncFailure(target=target, path=path, error=str(exc)))
+    return removed, failures
 
 
 def source_files(source: Path) -> list[tuple[Path, Path]]:

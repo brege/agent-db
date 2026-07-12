@@ -166,3 +166,46 @@ class TestSyncSkills:
             assert (target_b / "README.md").read_text() == "readme\n"
         finally:
             os.chmod(blocked, 0o755)
+
+    def test_prunes_target_files_absent_from_source(self, tmp_path: Path) -> None:
+        source = tmp_path / "source"
+        _make_skill(source, "keep")
+
+        target = tmp_path / "out"
+        stale = target / "retired"
+        (stale / "references").mkdir(parents=True)
+        (stale / "SKILL.md").write_text("# Retired\n", encoding="utf-8")
+        (stale / "references" / "notes.md").write_text("notes\n", encoding="utf-8")
+        (target / "scripts").mkdir()
+
+        config = ProjectConfig(
+            root=tmp_path,
+            skills=SkillsConfig(source=source, targets=(target,)),
+        )
+        result = sync_skills(config)
+
+        assert (target / "keep" / "SKILL.md").is_file()
+        assert not stale.exists()
+        assert not (target / "scripts").exists()
+        assert result.failures == []
+        assert stale / "SKILL.md" in result.removed
+        assert stale / "references" / "notes.md" in result.removed
+        assert target / "scripts" in result.removed
+
+    def test_prune_is_idempotent(self, tmp_path: Path) -> None:
+        source = tmp_path / "source"
+        _make_skill(source, "s")
+
+        target = tmp_path / "out"
+        (target / "stale").mkdir(parents=True)
+        (target / "stale" / "SKILL.md").write_text("x\n", encoding="utf-8")
+
+        config = ProjectConfig(
+            root=tmp_path,
+            skills=SkillsConfig(source=source, targets=(target,)),
+        )
+        first = sync_skills(config)
+        assert first.removed != []
+        second = sync_skills(config)
+        assert second.removed == []
+        assert second.written == []

@@ -167,6 +167,8 @@ def run_sync(args: argparse.Namespace) -> int:
     result = sync_skills(config)
     for path in result.written:
         print(path)
+    for path in result.removed:
+        print(f"removed {path}")
     if result.failures:
         print_sync_failures(result.failures)
         return 1
