@@ -49,7 +49,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--agent",
         choices=["claude", "codex", "all"],
         default="all",
-        help="agent to inspect with --memory",
+        help="agent to inspect with --memory or update with --refresh",
     )
     parser.add_argument(
         "--json",
@@ -85,11 +85,9 @@ def main(argv: list[str] | None = None) -> int:
             parser.error("--refresh cannot be used with --memory")
         if args.json_output:
             parser.error("--json requires --memory")
-        if args.agent != "all":
-            parser.error("--agent requires --memory")
         if args.reference_root:
             parser.error("--refresh cannot be used with --reference-root")
-        return refresh_docs()
+        return refresh_docs(args.agent)
     if args.reference_root:
         if args.show_memory:
             parser.error("--reference-root cannot be used with --memory")
@@ -185,13 +183,13 @@ def print_sync_failures(failures: list[SyncFailure]) -> None:
             print(f"  {item.path}: {item.error}", file=sys.stderr)
 
 
-def refresh_docs() -> int:
+def refresh_docs(agent: str = "all") -> int:
     root = str(Path(__file__).resolve().parents[2])
     if root not in sys.path:
         sys.path.insert(0, root)
     from tools.docs import refresh
 
-    return refresh.main()
+    return refresh.main(agent)
 
 
 def print_reference_root() -> int:

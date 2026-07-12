@@ -14,15 +14,28 @@ def test_cli_refresh_uses_docs_refresh(monkeypatch) -> None:
 
     calls = []
 
-    def fake_refresh() -> int:
-        calls.append("refresh")
+    def fake_refresh(agent: str) -> int:
+        calls.append(agent)
         return 17
 
     monkeypatch.setattr(refresh, "main", fake_refresh)
 
     assert cli.main(["--refresh"]) == 17
     assert cli.main(["-r"]) == 17
-    assert calls == ["refresh", "refresh"]
+    assert cli.main(["--refresh", "--agent", "codex"]) == 17
+    assert calls == ["all", "all", "codex"]
+
+
+def test_docs_refresh_runs_only_selected_agent(monkeypatch) -> None:
+    from tools.docs import refresh
+
+    calls = []
+    monkeypatch.setattr(refresh.claude, "refresh", lambda: calls.append("claude") or [])
+    monkeypatch.setattr(refresh.codex, "refresh", lambda: calls.append("codex") or [])
+    monkeypatch.setattr(refresh.agent_md, "refresh", lambda: calls.append("agents"))
+
+    assert refresh.main("codex") == 0
+    assert calls == ["codex"]
 
 
 def test_cli_reference_root_prints_absolute_docs_path(capsys) -> None:

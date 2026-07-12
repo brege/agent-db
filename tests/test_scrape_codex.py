@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from tools.docs.scrape import codex
 
 
@@ -48,6 +50,14 @@ def test_validates_codex_manual_frontmatter() -> None:
     codex.validate_markdown(page, markdown)
 
 
+def test_validates_short_codex_landing_page() -> None:
+    page = codex.Page.from_href("/codex/app")
+    markdown = '# ChatGPT desktop app\n\n<CodexSurfaceLanding surface="app" />\n'
+
+    assert page is not None
+    codex.validate_markdown(page, markdown)
+
+
 def test_discovers_codex_pages_from_llms_index() -> None:
     pages = codex.discover_pages_from_index(
         """# Codex
@@ -64,6 +74,11 @@ def test_discovers_codex_pages_from_llms_index() -> None:
         "/codex/plugins/build",
     ]
     assert pages[2].output == codex.OUTPUT_ROOT / "plugins" / "build.md"
+
+
+@pytest.mark.parametrize("href", sorted(codex.NON_MARKDOWN_HREFS))
+def test_ignores_non_markdown_codex_index_entries(href: str) -> None:
+    assert codex.Page.from_href(f"https://developers.openai.com{href}.md") is None
 
 
 def test_normalizes_codex_index_as_readme() -> None:

@@ -25,6 +25,14 @@ NAV_NOISE = {
     "Search docs",
     "Primary navigation",
 }
+NON_MARKDOWN_HREFS = {
+    "/codex/community/codex-for-oss",
+    "/codex/guides/build-ai-native-engineering-team",
+    "/codex/learn/best-practices",
+    "/codex/overview",
+    "/codex/resources",
+    "/codex/videos",
+}
 
 # Match Codex's absolute markdown links in the machine-readable docs index.
 DOCS_LINK_PATTERN = re.compile(r"https://developers\.openai\.com/codex/[A-Za-z0-9_./-]+\.md")
@@ -40,7 +48,7 @@ class Page:
     @classmethod
     def from_href(cls, href: str) -> Page | None:
         normalized = normalize_docs_href(href)
-        if normalized is None:
+        if normalized is None or normalized in NON_MARKDOWN_HREFS:
             return None
         slug = normalized.removeprefix(DOCS_PREFIX)
         return cls(
@@ -114,8 +122,8 @@ def write_page(page: Page) -> Path:
 
 def validate_markdown(page: Page, markdown: str) -> None:
     body = FRONTMATTER_PATTERN.sub("", markdown.lstrip(), count=1).lstrip()
-    if len(markdown) < 200 or not body.startswith(("# ", "## ")):
-        raise RuntimeError(f"unexpectedly small Codex markdown for {page.url}")
+    if not body.startswith(("# ", "## ")):
+        raise RuntimeError(f"unexpected Codex markdown for {page.url}")
     for phrase in NAV_NOISE:
         if phrase in markdown:
             raise RuntimeError(f"Codex markdown contains navigation noise: {phrase}")

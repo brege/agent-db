@@ -12,11 +12,14 @@ else:
     from scrape import agent_md, claude, codex
 
 
-def main() -> int:
+def main(agent: str = "all") -> int:
     written = []
-    written.extend(claude.refresh())
-    written.extend(codex.refresh())
-    written.append(agent_md.refresh())
+    if agent in ("all", "claude"):
+        written.extend(claude.refresh())
+    if agent in ("all", "codex"):
+        written.extend(codex.refresh())
+    if agent == "all":
+        written.append(agent_md.refresh())
 
     for path in written:
         print(path)
