@@ -2,11 +2,21 @@ from __future__ import annotations
 
 import json
 import os
+from importlib.metadata import version
 from textwrap import dedent
 
 import pytest
 
 from agent_db import cli
+
+
+@pytest.mark.parametrize("flag", ("-v", "--version"))
+def test_cli_version_uses_package_metadata(flag, capsys) -> None:
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main([flag])
+
+    assert exc_info.value.code == 0
+    assert capsys.readouterr().out == f"agent-db {version('agent-db')}\n"
 
 
 def test_cli_refresh_uses_docs_refresh(monkeypatch) -> None:
@@ -51,6 +61,7 @@ def test_cli_help_lists_short_flags_first() -> None:
     assert "-m, --memory" in help_text
     assert "-a, --agent {claude,codex,all}" in help_text
     assert "-r, --refresh" in help_text
+    assert "-v, --version" in help_text
     assert "--reference-root" in help_text
     assert "--memory, -m" not in help_text
     assert "--agent, -a" not in help_text

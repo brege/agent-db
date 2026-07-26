@@ -6,11 +6,12 @@ import argparse
 import json
 import os
 import sys
+from importlib.metadata import version
 from pathlib import Path
 
 from rich.console import Console
 
-from agent_db import __version__, claude, codex
+from agent_db import claude, codex
 from agent_db.display import MemoryPayload, loaded_context_model, print_loaded_context
 from agent_db.project import SyncFailure, find_git_root, load_config, sync_skills
 from agent_db.schema import Agent, claude_load_order, codex_load_order
@@ -23,9 +24,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Maintain global Claude Code and Codex configuration.",
     )
     parser.add_argument(
+        "-v",
         "--version",
         action="version",
-        version=f"%(prog)s {__version__}",
+        version=f"%(prog)s {version('agent-db')}",
     )
 
     sub = parser.add_subparsers(dest="command")
