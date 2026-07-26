@@ -14,16 +14,14 @@ def test_codex_markdown_endpoint_matches_copy_button() -> None:
 
 def test_validates_expected_codex_markdown() -> None:
     page = codex.Page.from_href("/codex/guides/agents-md")
-    markdown = "\n".join(
-        [
-            "# Custom instructions with AGENTS.md",
-            "## How Codex discovers guidance",
-            "## Create global guidance",
-            "## Layer project instructions",
-            "## Customize fallback filenames",
-            "## Verify your setup",
-            "## Troubleshoot discovery issues",
-        ]
+    markdown = (
+        "# Custom instructions with AGENTS.md\n"
+        "## How Codex discovers guidance\n"
+        "## Create global guidance\n"
+        "## Layer project instructions\n"
+        "## Customize fallback filenames\n"
+        "## Verify your setup\n"
+        "## Troubleshoot discovery issues"
     )
 
     assert page is not None
@@ -32,18 +30,12 @@ def test_validates_expected_codex_markdown() -> None:
 
 def test_validates_codex_manual_frontmatter() -> None:
     page = codex.Page.from_href("/codex/codex-manual")
-    markdown = "\n".join(
-        [
-            "---",
-            'title: "Codex Manual"',
-            "hidden: true",
-            "---",
-            "",
-            "## Find By Topic",
-            "This manual contains enough text to behave like a normal reference page.",
-            "This manual contains enough text to behave like a normal reference page.",
-            "This manual contains enough text to behave like a normal reference page.",
-        ]
+    markdown = (
+        '---\ntitle: "Codex Manual"\nhidden: true\n---\n\n'
+        "## Find By Topic\n"
+        "This manual contains enough text to behave like a normal reference page.\n"
+        "This manual contains enough text to behave like a normal reference page.\n"
+        "This manual contains enough text to behave like a normal reference page."
     )
 
     assert page is not None

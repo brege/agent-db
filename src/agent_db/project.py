@@ -49,7 +49,7 @@ def load_config(root: Path) -> ProjectConfig:
         return ProjectConfig(root=root, skills=None)
 
     if not isinstance(skills_data, dict):
-        raise ValueError("skills must be a table")
+        raise TypeError("skills must be a table")
 
     source = skills_data.get("source")
     if not isinstance(source, str) or not source:
@@ -131,10 +131,9 @@ def prune_stale(target: Path, expected: set[Path]) -> tuple[list[Path], list[Syn
                 if relative not in expected:
                     path.unlink()
                     removed.append(path)
-            elif path.is_dir():
-                if relative not in expected_dirs and not any(path.iterdir()):
-                    path.rmdir()
-                    removed.append(path)
+            elif path.is_dir() and relative not in expected_dirs and not any(path.iterdir()):
+                path.rmdir()
+                removed.append(path)
         except OSError as exc:
             failures.append(SyncFailure(target=target, path=path, error=str(exc)))
     return removed, failures
@@ -164,6 +163,7 @@ def find_git_root(start: Path | None = None) -> Path | None:
             capture_output=True,
             text=True,
             cwd=start,
+            check=False,
         )
         if result.returncode == 0:
             return Path(result.stdout.strip())

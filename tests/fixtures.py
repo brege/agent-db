@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from __future__ import annotations
 
 import argparse
@@ -64,9 +62,8 @@ def _create_tree(root: Path, spec: dict[str, Any]) -> None:
         elif isinstance(value, str):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(value)
-        elif isinstance(value, bool):
-            if value:
-                path.mkdir(exist_ok=True)
+        elif isinstance(value, bool) and value:
+            path.mkdir(exist_ok=True)
 
 
 def clean() -> None:
@@ -77,7 +74,7 @@ def clean() -> None:
 
 def generate_all() -> None:
     fixtures = load_fixtures()
-    for name in sorted(fixtures.keys()):
+    for name in sorted(fixtures):
         data = fixtures[name]
         path = generate_fixture(name, data)
         print(f"Generated: {path}")
@@ -86,7 +83,7 @@ def generate_all() -> None:
 
 def generate_one(pattern: str) -> None:
     fixtures = load_fixtures()
-    matched = [n for n in fixtures.keys() if pattern in n]
+    matched = [name for name in fixtures if pattern in name]
     if not matched:
         print(f"No fixtures match {pattern!r}", file=sys.stderr)
         return
@@ -125,7 +122,7 @@ def read_manifest() -> dict[str, str]:
         return {}
     data = json.loads(MANIFEST.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError(f"fixture manifest must be a mapping: {MANIFEST}")
+        raise TypeError(f"fixture manifest must be a mapping: {MANIFEST}")
     return {str(key): str(value) for key, value in data.items()}
 
 

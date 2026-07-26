@@ -213,7 +213,7 @@ def parse_settings(path: Path) -> SettingsDoc:
     except yaml.YAMLError as exc:
         raise ValueError(f"invalid YAML in {path}: {exc}") from exc
     if not isinstance(data, dict):
-        raise ValueError(f"settings must be a mapping: {path}")
+        raise TypeError(f"settings must be a mapping: {path}")
     return SettingsDoc(name=path.stem, path=path, data=data)
 
 
@@ -306,7 +306,7 @@ def render_restrictions(settings: dict[str, Any]) -> str:
 
 
 def command_subject(pattern: str) -> str:
-    return pattern[:-2] if pattern.endswith(" *") else pattern
+    return pattern.removesuffix(" *")
 
 
 def apply_settings_doc(target: dict[str, Any], data: dict[str, Any]) -> None:

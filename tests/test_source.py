@@ -98,7 +98,7 @@ def test_parse_settings_rejects_non_mapping_yaml(tmp_path) -> None:
     settings_file = tmp_path / "bad.yaml"
     settings_file.write_text("just a string\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="settings must be a mapping"):
+    with pytest.raises(TypeError, match="settings must be a mapping"):
         parse_settings(settings_file)
 
 

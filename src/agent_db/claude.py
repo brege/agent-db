@@ -114,7 +114,7 @@ def read_settings(path: Path) -> dict[str, Any]:
         return {}
     data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
-        raise ValueError(f"Claude settings must be a JSON object: {path}")
+        raise TypeError(f"Claude settings must be a JSON object: {path}")
     return data
 
 
@@ -133,7 +133,7 @@ def claude_settings(settings: dict[str, Any], output_style: str | None = None) -
     validate_namespaces(settings)
     claude = settings.get("claude", {})
     if not isinstance(claude, dict):
-        raise ValueError("claude settings must be a mapping")
+        raise TypeError("claude settings must be a mapping")
     output = deepcopy(claude)
     if output_style is not None and "outputStyle" not in output:
         output["outputStyle"] = output_style

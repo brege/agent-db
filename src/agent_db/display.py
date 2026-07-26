@@ -295,6 +295,6 @@ def format_summary(ctx: LoadedContext) -> str:
         parts.append(f"{on_demand_count} on-demand")
     if on_read_count:
         parts.append(f"{on_read_count} on-read-match")
-    parts.append(f"from {len(set(s.scope for s in ctx.sources))} scopes")
+    parts.append(f"from {len({source.scope for source in ctx.sources})} scopes")
 
     return ", ".join(parts)

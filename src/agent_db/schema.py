@@ -463,7 +463,7 @@ def claude_load_order(
     for settings_src in settings_sources:
         settings_data = json.loads(settings_src.source_path.read_text(encoding="utf-8"))
         if not isinstance(settings_data, dict):
-            raise ValueError(f"settings must be a JSON object: {settings_src.source_path}")
+            raise TypeError(f"settings must be a JSON object: {settings_src.source_path}")
         rules = _extract_all_claude_rules(settings_data, settings_src.source_path)
         for rule in rules:
             updated_rule = RulesSource(
@@ -1029,5 +1029,5 @@ def _parse_prefix_rule_call(call: ast.Call, rules_file: Path) -> tuple[str, str]
     else:
         raise ValueError(f"prefix_rule pattern must be a string or string list: {rules_file}")
     if not isinstance(decision, str):
-        raise ValueError(f"prefix_rule decision must be a string: {rules_file}")
+        raise TypeError(f"prefix_rule decision must be a string: {rules_file}")
     return rule_pattern, decision

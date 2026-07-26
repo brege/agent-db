@@ -18,7 +18,7 @@ dependencies = [
 dev = [
   "pre-commit>=3.8",
   "pytest>=8.4.0",
-  "ruff>=0.15.0",
+  "ruff>=0.16.0",
   "ty>=0.0.17",
 ]
 
@@ -40,4 +40,4 @@ line-length = 100
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
+extend-select = ["E", "F", "I", "UP"]

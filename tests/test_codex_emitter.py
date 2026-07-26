@@ -149,7 +149,7 @@ def test_codex_config_enforce_network_keeps_filesystem_baseline() -> None:
 
 
 @pytest.mark.parametrize(
-    ("codex_config", "message"),
+    ("codex_config", "error", "message"),
     [
         (
             {
@@ -157,6 +157,7 @@ def test_codex_config_enforce_network_keeps_filesystem_baseline() -> None:
                     "enabled": True,
                 },
             },
+            ValueError,
             "permissions_profile",
         ),
         (
@@ -164,6 +165,7 @@ def test_codex_config_enforce_network_keeps_filesystem_baseline() -> None:
                 "permissions_profile": "enforce",
                 "network": "enabled",
             },
+            TypeError,
             "codex.network",
         ),
         (
@@ -173,6 +175,7 @@ def test_codex_config_enforce_network_keeps_filesystem_baseline() -> None:
                     "enabled": "true",
                 },
             },
+            ValueError,
             "codex.network.enabled",
         ),
         (
@@ -182,12 +185,13 @@ def test_codex_config_enforce_network_keeps_filesystem_baseline() -> None:
                     "mode": True,
                 },
             },
+            ValueError,
             "codex.network.mode",
         ),
     ],
 )
-def test_codex_network_validation(codex_config, message) -> None:
-    with pytest.raises(ValueError, match=message):
+def test_codex_network_validation(codex_config, error, message) -> None:
+    with pytest.raises(error, match=message):
         codex.render_config(
             {
                 "codex": codex_config,

@@ -264,20 +264,17 @@ def codex_settings(settings: dict[str, Any]) -> dict[str, Any]:
     validate_namespaces(settings)
     codex = settings.get("codex", {})
     if not isinstance(codex, dict):
-        raise ValueError("codex settings must be a mapping")
+        raise TypeError("codex settings must be a mapping")
     return codex
 
 
 def codex_passthrough(codex: dict[str, Any]) -> list[str]:
     scalars: list[str] = []
     structured: list[tuple[str, Any]] = []
-    for key in codex:
+    for key, value in codex.items():
         if key in CODEX_DERIVED_KEYS:
             continue
-        value = codex[key]
-        if isinstance(value, dict):
-            structured.append((key, value))
-        elif isinstance(value, list) and value and isinstance(value[0], dict):
+        if is_toml_table(value):
             structured.append((key, value))
         else:
             scalars.append(f"{toml_key(key)} = {toml_scalar(value)}")
@@ -296,9 +293,7 @@ def toml_section(prefix: str, data: dict[str, Any]) -> list[str]:
     lines = [f"[{prefix}]"]
     subtables: list[tuple[str, Any]] = []
     for key, value in data.items():
-        if isinstance(value, dict):
-            subtables.append((f"{prefix}.{toml_key(key)}", value))
-        elif isinstance(value, list) and value and isinstance(value[0], dict):
+        if is_toml_table(value):
             subtables.append((f"{prefix}.{toml_key(key)}", value))
         else:
             lines.append(f"{toml_key(key)} = {toml_scalar(value)}")
@@ -319,9 +314,7 @@ def toml_array_of_tables(prefix: str, items: list[dict[str, Any]]) -> list[str]:
         lines.append(f"[[{prefix}]]")
         subtables: list[tuple[str, Any]] = []
         for key, value in item.items():
-            if isinstance(value, dict):
-                subtables.append((f"{prefix}.{toml_key(key)}", value))
-            elif isinstance(value, list) and value and isinstance(value[0], dict):
+            if is_toml_table(value):
                 subtables.append((f"{prefix}.{toml_key(key)}", value))
             else:
                 lines.append(f"{toml_key(key)} = {toml_scalar(value)}")
@@ -348,6 +341,12 @@ def toml_scalar(value: Any) -> str:
             raise ValueError("use toml_array_of_tables for list of dicts")
         return "[" + ", ".join(toml_scalar(item) for item in value) + "]"
     raise ValueError(f"unsupported TOML value: {type(value).__name__}")
+
+
+def is_toml_table(value: Any) -> bool:
+    return isinstance(value, dict) or (
+        isinstance(value, list) and bool(value) and isinstance(value[0], dict)
+    )
 
 
 def toml_key(key: str) -> str:
@@ -385,7 +384,7 @@ def codex_network(codex: dict[str, Any]) -> dict[str, str]:
     if network is None:
         return {}
     if not isinstance(network, dict):
-        raise ValueError("codex.network must be a mapping")
+        raise TypeError("codex.network must be a mapping")
 
     output: dict[str, str] = {}
     if "enabled" in network:
@@ -425,8 +424,7 @@ def codex_path_level(permissions: list[str]) -> str:
 
 
 def codex_path(path: str) -> str:
-    if path.endswith("/**"):
-        path = path[:-3]
+    path = path.removesuffix("/**")
     if path.startswith("~/"):
         return str(Path(path).expanduser())
     return path

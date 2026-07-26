@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from email.message import Message
+from typing import Self
 from urllib.error import HTTPError, URLError
 
 import pytest
@@ -13,7 +14,7 @@ class Response:
     status = 200
     headers = Message()
 
-    def __enter__(self) -> Response:
+    def __enter__(self) -> Self:
         return self
 
     def __exit__(self, *args: object) -> None:
