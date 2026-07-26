@@ -170,7 +170,8 @@ def test_cli_sync_reports_failures_and_exits_nonzero(tmp_path, capsys) -> None:
     source = root / "src"
     (source / "my-skill").mkdir(parents=True)
     (source / "my-skill" / "SKILL.md").write_text("# My Skill\n", encoding="utf-8")
-    (source / "README.md").write_text("readme\n", encoding="utf-8")
+    (source / "other").mkdir(parents=True)
+    (source / "other" / "SKILL.md").write_text("# Other\n", encoding="utf-8")
     (root / "agent-db.toml").write_text(
         '[skills]\nsource = "src"\ntargets = ["a", "b"]\n',
         encoding="utf-8",
@@ -185,10 +186,10 @@ def test_cli_sync_reports_failures_and_exits_nonzero(tmp_path, capsys) -> None:
         captured = capsys.readouterr()
         assert "failed to sync 1 file(s) to" in captured.err
         assert str(root / "a" / "my-skill" / "SKILL.md") in captured.err
-        # The unaffected target still received every file
+        # The unaffected target still received every skill
         assert (root / "b" / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
-        assert (root / "b" / "README.md").read_text() == "readme\n"
-        assert str(root / "b" / "README.md") in captured.out
+        assert (root / "b" / "other" / "SKILL.md").read_text() == "# Other\n"
+        assert str(root / "b" / "other" / "SKILL.md") in captured.out
     finally:
         os.chmod(blocked, 0o755)
 
@@ -198,7 +199,8 @@ def test_cli_sync_success_exits_zero(tmp_path, capsys) -> None:
     source = root / "src"
     (source / "my-skill").mkdir(parents=True)
     (source / "my-skill" / "SKILL.md").write_text("# My Skill\n", encoding="utf-8")
-    (source / "README.md").write_text("readme\n", encoding="utf-8")
+    (source / "other").mkdir(parents=True)
+    (source / "other" / "SKILL.md").write_text("# Other\n", encoding="utf-8")
     (root / "agent-db.toml").write_text(
         '[skills]\nsource = "src"\ntargets = ["a", "b"]\n',
         encoding="utf-8",
@@ -207,7 +209,7 @@ def test_cli_sync_success_exits_zero(tmp_path, capsys) -> None:
     assert cli.main(["sync", "--root", str(root)]) == 0
     assert capsys.readouterr().err == ""
     for target in ("a", "b"):
-        assert (root / target / "README.md").read_text() == "readme\n"
+        assert (root / target / "other" / "SKILL.md").read_text() == "# Other\n"
         assert (root / target / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
 
 
@@ -220,13 +222,15 @@ def test_cli_sync_prints_pruned_paths(tmp_path, capsys) -> None:
         '[skills]\nsource = "src"\ntargets = ["a"]\n',
         encoding="utf-8",
     )
-    stale = root / "a" / "old-skill"
-    stale.mkdir(parents=True)
-    (stale / "SKILL.md").write_text("# Old\n", encoding="utf-8")
+    # Stale content inside an owned skill is pruned; its emptied dir collapses.
+    stale_dir = root / "a" / "my-skill" / "old"
+    stale_dir.mkdir(parents=True)
+    stale_file = stale_dir / "notes.md"
+    stale_file.write_text("# Old\n", encoding="utf-8")
 
     assert cli.main(["sync", "--root", str(root)]) == 0
 
     captured = capsys.readouterr()
-    assert f"removed {stale / 'SKILL.md'}" in captured.out
-    assert f"removed {stale}" in captured.out
-    assert not stale.exists()
+    assert f"removed {stale_file}" in captured.out
+    assert f"removed {stale_dir}" in captured.out
+    assert not stale_dir.exists()

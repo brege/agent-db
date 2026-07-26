@@ -117,11 +117,14 @@ class TestSyncSkills:
         assert (target / "review" / "SKILL.md").read_text() == "# Review\n"
         assert (target / "review" / "references" / "template.md").read_text() == "# Template\n"
 
-    def test_copies_top_level_files_to_all_targets(self, tmp_path: Path) -> None:
+    def test_copies_skills_to_all_targets_ignoring_loose_files(self, tmp_path: Path) -> None:
         source = tmp_path / "source"
         _make_skill(source, "my-skill", "# My Skill\n")
+        _make_skill(source, "other", "# Other\n")
+        # Loose files and non-skill directories at the source root are ignored.
         (source / "README.md").write_text("readme\n", encoding="utf-8")
-        (source / "artifacts.md").write_text("artifacts\n", encoding="utf-8")
+        (source / "notes").mkdir()
+        (source / "notes" / "draft.md").write_text("draft\n", encoding="utf-8")
 
         target_a = tmp_path / "a"
         target_b = tmp_path / "b"
@@ -133,13 +136,14 @@ class TestSyncSkills:
         assert result.failures == []
         for target in (target_a, target_b):
             assert (target / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
-            assert (target / "README.md").read_text() == "readme\n"
-            assert (target / "artifacts.md").read_text() == "artifacts\n"
+            assert (target / "other" / "SKILL.md").read_text() == "# Other\n"
+            assert not (target / "README.md").exists()
+            assert not (target / "notes").exists()
 
-    def test_unwritable_file_does_not_stop_other_files_or_targets(self, tmp_path: Path) -> None:
+    def test_unwritable_file_does_not_stop_other_skills_or_targets(self, tmp_path: Path) -> None:
         source = tmp_path / "source"
         _make_skill(source, "my-skill", "# My Skill\n")
-        (source / "README.md").write_text("readme\n", encoding="utf-8")
+        _make_skill(source, "other", "# Other\n")
 
         target_a = tmp_path / "a"
         target_b = tmp_path / "b"
@@ -159,23 +163,27 @@ class TestSyncSkills:
             assert failure.target == target_a
             assert failure.path == target_a / "my-skill" / "SKILL.md"
 
-            # Sibling file in the failing target still lands
-            assert (target_a / "README.md").read_text() == "readme\n"
+            # Sibling skill in the failing target still lands
+            assert (target_a / "other" / "SKILL.md").read_text() == "# Other\n"
             # Second target is unaffected
             assert (target_b / "my-skill" / "SKILL.md").read_text() == "# My Skill\n"
-            assert (target_b / "README.md").read_text() == "readme\n"
+            assert (target_b / "other" / "SKILL.md").read_text() == "# Other\n"
         finally:
             os.chmod(blocked, 0o755)
 
-    def test_prunes_target_files_absent_from_source(self, tmp_path: Path) -> None:
+    def test_prunes_stale_files_within_owned_skills(self, tmp_path: Path) -> None:
         source = tmp_path / "source"
         _make_skill(source, "keep")
 
         target = tmp_path / "out"
-        stale = target / "retired"
-        (stale / "references").mkdir(parents=True)
-        (stale / "SKILL.md").write_text("# Retired\n", encoding="utf-8")
-        (stale / "references" / "notes.md").write_text("notes\n", encoding="utf-8")
+        # Stale file inside a source-owned skill: pruned.
+        (target / "keep" / "references").mkdir(parents=True)
+        (target / "keep" / "references" / "old.md").write_text("old\n", encoding="utf-8")
+        # Sibling skill the source does not own: left alone.
+        unowned = target / "retired"
+        (unowned / "references").mkdir(parents=True)
+        (unowned / "SKILL.md").write_text("# Retired\n", encoding="utf-8")
+        (unowned / "references" / "notes.md").write_text("notes\n", encoding="utf-8")
         (target / "scripts").mkdir()
 
         config = ProjectConfig(
@@ -185,20 +193,22 @@ class TestSyncSkills:
         result = sync_skills(config)
 
         assert (target / "keep" / "SKILL.md").is_file()
-        assert not stale.exists()
-        assert not (target / "scripts").exists()
+        assert not (target / "keep" / "references").exists()
+        assert target / "keep" / "references" / "old.md" in result.removed
+        # Unowned siblings are untouched.
+        assert (unowned / "SKILL.md").is_file()
+        assert (unowned / "references" / "notes.md").is_file()
+        assert (target / "scripts").is_dir()
         assert result.failures == []
-        assert stale / "SKILL.md" in result.removed
-        assert stale / "references" / "notes.md" in result.removed
-        assert target / "scripts" in result.removed
 
     def test_prune_is_idempotent(self, tmp_path: Path) -> None:
         source = tmp_path / "source"
         _make_skill(source, "s")
 
         target = tmp_path / "out"
-        (target / "stale").mkdir(parents=True)
-        (target / "stale" / "SKILL.md").write_text("x\n", encoding="utf-8")
+        # Stale file inside the owned skill triggers a prune on the first sync.
+        (target / "s").mkdir(parents=True)
+        (target / "s" / "stale.md").write_text("x\n", encoding="utf-8")
 
         config = ProjectConfig(
             root=tmp_path,

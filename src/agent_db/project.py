@@ -65,10 +65,16 @@ def load_config(root: Path) -> ProjectConfig:
     return ProjectConfig(
         root=root,
         skills=SkillsConfig(
-            source=root / source,
-            targets=tuple(root / t for t in targets),
+            source=resolve_path(root, source),
+            targets=tuple(resolve_path(root, t) for t in targets),
         ),
     )
+
+
+def resolve_path(root: Path, value: str) -> Path:
+    """Expand ~ and keep absolute paths; resolve relative paths against root."""
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else root / path
 
 
 def sync_skills(config: ProjectConfig) -> SyncResult:
@@ -99,28 +105,33 @@ def sync_skills(config: ProjectConfig) -> SyncResult:
 
 
 def prune_stale(target: Path, expected: set[Path]) -> tuple[list[Path], list[SyncFailure]]:
-    """Delete target files absent from the source tree, then any emptied stale directories.
+    """Delete stale files inside source-owned skills, then any emptied stale directories.
 
-    Deepest paths first, so files go before their directories and nested empty
-    directories collapse upward in one pass. Directories that are ancestors of
-    expected files are kept even when empty (a failed copy must not cascade
-    into removing the skill directory it was meant to fill).
+    Pruning is scoped to the top-level skill directories the source contains, so
+    sibling skills the source does not own are never touched. Deepest paths first,
+    so files go before their directories and nested empty directories collapse
+    upward in one pass. Directories that are ancestors of expected files are kept
+    even when empty (a failed copy must not cascade into removing the skill
+    directory it was meant to fill).
     """
     removed: list[Path] = []
     failures: list[SyncFailure] = []
     if not target.is_dir():
         return removed, failures
+    owned = {relative.parts[0] for relative in expected if relative.parts}
     expected_dirs: set[Path] = set()
     for relative in expected:
         expected_dirs.update(relative.parents)
     for path in sorted(target.rglob("*"), reverse=True):
+        relative = path.relative_to(target)
+        if not relative.parts or relative.parts[0] not in owned:
+            continue
         try:
             if path.is_file():
-                if path.relative_to(target) not in expected:
+                if relative not in expected:
                     path.unlink()
                     removed.append(path)
             elif path.is_dir():
-                relative = path.relative_to(target)
                 if relative not in expected_dirs and not any(path.iterdir()):
                     path.rmdir()
                     removed.append(path)
@@ -130,10 +141,20 @@ def prune_stale(target: Path, expected: set[Path]) -> tuple[list[Path], list[Syn
 
 
 def source_files(source: Path) -> list[tuple[Path, Path]]:
-    """Every file under source paired with its path relative to source."""
-    return [
-        (path, path.relative_to(source)) for path in sorted(source.rglob("*")) if path.is_file()
-    ]
+    """Every file under each top-level skill, paired with its path relative to source.
+
+    A skill is an immediate child directory of source that holds a SKILL.md. Loose
+    files and non-skill directories (.git, tooling, sibling projects) are ignored,
+    so a source pointed at a mixed repo root syncs only its skills.
+    """
+    result: list[tuple[Path, Path]] = []
+    for skill in sorted(source.iterdir()):
+        if not skill.is_dir() or not (skill / "SKILL.md").is_file():
+            continue
+        for path in sorted(skill.rglob("*")):
+            if path.is_file():
+                result.append((path, path.relative_to(source)))
+    return result
 
 
 def find_git_root(start: Path | None = None) -> Path | None:
