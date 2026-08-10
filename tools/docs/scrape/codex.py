@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
@@ -8,11 +9,12 @@ from urllib.parse import urlparse
 from .fetch import fetch_text
 
 ROOT = Path(__file__).resolve().parents[3]
-BASE_URL = "https://developers.openai.com"
-DOCS_PREFIX = "/codex/"
-DISCOVERY_URL = f"{BASE_URL}/codex/llms.txt"
+BASE_URL = "https://learn.chatgpt.com"
+DOCS_PREFIX = "/docs/"
+DISCOVERY_URL = f"{BASE_URL}/llms.txt"
 OUTPUT_ROOT = ROOT / "docs" / "reference" / "codex"
 INDEX_OUTPUT = OUTPUT_ROOT / "README.md"
+AGENTS_MD_HREF = "/docs/agent-configuration/agents-md"
 AGENTS_MD_HEADINGS = [
     "How Codex discovers guidance",
     "Create global guidance",
@@ -25,18 +27,16 @@ NAV_NOISE = {
     "Search docs",
     "Primary navigation",
 }
-NON_MARKDOWN_HREFS = {
-    "/codex/community/codex-for-oss",
-    "/codex/guides/build-ai-native-engineering-team",
-    "/codex/learn/best-practices",
-    "/codex/overview",
-    "/codex/resources",
-    "/codex/videos",
-}
 
-# Match Codex's absolute markdown links in the machine-readable docs index.
-DOCS_LINK_PATTERN = re.compile(r"https://developers\.openai\.com/codex/[A-Za-z0-9_./-]+\.md")
+# Match the docs set's absolute markdown links in the machine-readable index.
+# Index entries outside /docs/ (guides, resources, videos) have no markdown twins.
+DOCS_LINK_PATTERN = re.compile(r"https://learn\.chatgpt\.com/docs/[A-Za-z0-9_./-]+\.md")
 FRONTMATTER_PATTERN = re.compile(r"\A---\n.*?\n---\n", re.DOTALL)
+# Every markdown twin repeats a blockquote banner pointing at the llms.txt index.
+BANNER_PATTERN = re.compile(
+    r"^> For the complete documentation index, see \[llms\.txt\]\([^)]*\)\.[^\n]*\n\n?",
+    re.MULTILINE,
+)
 
 
 @dataclass(frozen=True)
@@ -48,7 +48,7 @@ class Page:
     @classmethod
     def from_href(cls, href: str) -> Page | None:
         normalized = normalize_docs_href(href)
-        if normalized is None or normalized in NON_MARKDOWN_HREFS:
+        if normalized is None:
             return None
         slug = normalized.removeprefix(DOCS_PREFIX)
         return cls(
@@ -64,9 +64,12 @@ class Page:
 
 def refresh() -> list[Path]:
     index = fetch_text(DISCOVERY_URL)
+    pages = discover_pages_from_index(index)
+    if OUTPUT_ROOT.exists():
+        shutil.rmtree(OUTPUT_ROOT)
     outputs = [write_index(index)]
     seen: set[Path] = set()
-    for page in discover_pages_from_index(index):
+    for page in pages:
         if page.output in seen:
             raise RuntimeError(f"duplicate output path: {page.output}")
         seen.add(page.output)
@@ -107,17 +110,19 @@ def normalize_docs_href(href: str) -> str | None:
         path = path.removesuffix(".md")
     if not path.startswith(DOCS_PREFIX):
         return None
-    if path == DOCS_PREFIX.rstrip("/"):
-        return None
     return path
 
 
 def write_page(page: Page) -> Path:
-    markdown = fetch_text(page.markdown_url)
+    markdown = normalize_markdown(fetch_text(page.markdown_url))
     validate_markdown(page, markdown)
     page.output.parent.mkdir(parents=True, exist_ok=True)
-    page.output.write_text(markdown.strip() + "\n", encoding="utf-8")
+    page.output.write_text(markdown, encoding="utf-8")
     return page.output
+
+
+def normalize_markdown(markdown: str) -> str:
+    return BANNER_PATTERN.sub("", markdown).strip() + "\n"
 
 
 def validate_markdown(page: Page, markdown: str) -> None:
@@ -129,7 +134,7 @@ def validate_markdown(page: Page, markdown: str) -> None:
             raise RuntimeError(f"Codex markdown contains navigation noise: {phrase}")
     if markdown.lstrip().lower().startswith("<!doctype html"):
         raise RuntimeError(f"Codex markdown looks like HTML: {page.url}")
-    if page.href == "/codex/guides/agents-md":
+    if page.href == AGENTS_MD_HREF:
         for heading in AGENTS_MD_HEADINGS:
             if heading not in markdown:
                 raise RuntimeError(f"missing expected Codex heading: {heading}")

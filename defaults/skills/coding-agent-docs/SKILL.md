@@ -45,7 +45,7 @@ REFERENCE_ROOT/claude/<slug>.md
 Codex:
 
 ```text
-https://developers.openai.com/codex/<slug>.md
+https://learn.chatgpt.com/docs/<slug>.md
 REFERENCE_ROOT/codex/<slug>.md
 ```
 

@@ -29,7 +29,7 @@ agent-db --refresh
 - [config-reference.md] - config key reference, including permissions and filesystem profile keys
 - [config-sample.md] - example config with permissions and `glob_scan_max_depth`
 - [rules.md] - `.rules` files, `prefix_rule`, and command decisions
-- [codex/skills.md] - `~/.codex/skills`, repo skills, user skills, and skill metadata
+- [build-skills.md] - `.agents/skills` locations, user and admin skills, and skill metadata
 - [subagents.md] - `~/.codex/agents/*.toml`, project agents, and agent config keys
 
 ## Maintainer References
@@ -50,7 +50,7 @@ agent-db --refresh
 - [codex/hooks.md] - Codex hook events and config locations
 - [codex/mcp.md] - MCP config in `config.toml`
 - [codex/plugins.md] - plugin config and installation
-- [plugins/build.md] - plugin package layout
+- [build-plugins.md] - plugin package layout
 - [speed.md] - speed settings
 
 AGENTS.md:
@@ -71,22 +71,23 @@ Use these docs when changing generators:
 - Codex config home: [config-advanced.md]
 - Codex config keys: [config-reference.md], [config-sample.md]
 - Codex rules: [rules.md]
-- Codex skills: [codex/skills.md]
+- Codex skills: [build-skills.md]
 - Codex agents: [subagents.md]
 
-[agents-md.md]: codex/guides/agents-md.md
+[agents-md.md]: codex/agent-configuration/agents-md.md
 [agents.md/AGENTS.md]: agents.md/AGENTS.md
 [agents.md/README.md]: agents.md/README.md
+[build-plugins.md]: codex/build-plugins.md
+[build-skills.md]: codex/build-skills.md
 [claude-directory.md]: claude/claude-directory.md
 [codex/hooks.md]: codex/hooks.md
-[codex/mcp.md]: codex/mcp.md
+[codex/mcp.md]: codex/extend/mcp.md
 [codex/plugins.md]: codex/plugins.md
-[codex/skills.md]: codex/skills.md
 [commands.md]: claude/commands.md
-[config-advanced.md]: codex/config-advanced.md
-[config-basic.md]: codex/config-basic.md
-[config-reference.md]: codex/config-reference.md
-[config-sample.md]: codex/config-sample.md
+[config-advanced.md]: codex/config-file/config-advanced.md
+[config-basic.md]: codex/config-file/config-basic.md
+[config-reference.md]: codex/config-file/config-reference.md
+[config-sample.md]: codex/config-file/config-sample.md
 [debug-your-config.md]: claude/debug-your-config.md
 [env-vars.md]: claude/env-vars.md
 [hooks-guide.md]: claude/hooks-guide.md
@@ -96,12 +97,11 @@ Use these docs when changing generators:
 [permissions.md]: claude/permissions.md
 [plugins-reference.md]: claude/plugins-reference.md
 [plugins.md]: claude/plugins.md
-[plugins/build.md]: codex/plugins/build.md
-[rules.md]: codex/rules.md
+[rules.md]: codex/agent-configuration/rules.md
 [sandboxing.md]: claude/sandboxing.md
 [server-managed-settings.md]: claude/server-managed-settings.md
 [settings.md]: claude/settings.md
 [skills.md]: claude/skills.md
-[speed.md]: codex/speed.md
+[speed.md]: codex/agent-configuration/speed.md
 [sub-agents.md]: claude/sub-agents.md
-[subagents.md]: codex/subagents.md
+[subagents.md]: codex/agent-configuration/subagents.md
