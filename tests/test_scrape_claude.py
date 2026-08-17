@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from email.message import Message
+from ssl import CERT_REQUIRED, VERIFY_X509_STRICT
 from typing import Self
 from urllib.error import HTTPError, URLError
 
@@ -22,6 +23,24 @@ class Response:
 
     def read(self) -> bytes:
         return b"# Claude docs"
+
+
+def test_fetch_uses_verified_legacy_compatible_tls(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    contexts: list[object] = []
+
+    def urlopen(*args: object, **kwargs: object) -> Response:
+        contexts.append(kwargs["context"])
+        return Response()
+
+    monkeypatch.setattr(fetch_module, "urlopen", urlopen)
+
+    assert fetch_module.fetch_text("https://example.com") == "# Claude docs"
+    assert contexts == [fetch_module.TLS_CONTEXT]
+    assert fetch_module.TLS_CONTEXT.verify_mode == CERT_REQUIRED
+    assert fetch_module.TLS_CONTEXT.check_hostname
+    assert not fetch_module.TLS_CONTEXT.verify_flags & VERIFY_X509_STRICT
 
 
 def test_strips_claude_docs_index() -> None:

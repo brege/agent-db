@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from ssl import VERIFY_X509_STRICT, create_default_context
 from time import sleep
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 ATTEMPTS = 3
 TIMEOUT = 30
+
+# Python 3.13 enables strict validation, which rejects legacy CA certificates
+# whose basicConstraints extension is not marked critical.
+TLS_CONTEXT = create_default_context()
+TLS_CONTEXT.verify_flags &= ~VERIFY_X509_STRICT
 
 
 def fetch_text(url: str) -> str:
@@ -15,7 +21,7 @@ def fetch_text(url: str) -> str:
         action = "Fetching" if attempt == 0 else f"Retrying ({attempt + 1}/{ATTEMPTS})"
         print(f"{action} {url}", flush=True)
         try:
-            with urlopen(request, timeout=TIMEOUT) as response:
+            with urlopen(request, timeout=TIMEOUT, context=TLS_CONTEXT) as response:
                 status = response.status
                 if status != 200:
                     raise RuntimeError(f"GET {url} returned HTTP {status}")
