@@ -10,6 +10,7 @@ agent's native config format.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,8 @@ import yaml
 LAYERS = ("dist", "user")
 H1 = re.compile(r"^# (?P<title>.+?)\s*$", re.MULTILINE)
 SLUG_PARTS = re.compile(r"[^a-z0-9]+")
+# Matches Markdown heading markers so assembled sections fit below the file title.
+HEADING = re.compile(r"^(#{1,6})(?=\s)", re.MULTILINE)
 
 
 @dataclass(frozen=True)
@@ -108,6 +111,14 @@ class AgentSource:
         if not layers:
             raise FileNotFoundError(f"no source layers under {resolved}")
         return cls(root=resolved, layers=layers)
+
+
+@dataclass(frozen=True)
+class Assembly:
+    sections: tuple[Section, ...]
+    settings: dict[str, Any]
+    skills: tuple[AssetDir, ...]
+    agents: tuple[AssetDir, ...]
 
 
 def load_layer(name: str, path: Path) -> SourceLayer:
@@ -269,6 +280,17 @@ def merged_settings(source: AgentSource) -> dict[str, Any]:
     return merged
 
 
+def assemble(source: AgentSource) -> Assembly:
+    settings = merged_settings(source)
+    validate_namespaces(settings)
+    return Assembly(
+        sections=assemble_sections(source),
+        settings=settings,
+        skills=merged_skills(source),
+        agents=merged_agents(source),
+    )
+
+
 def doc_settings(doc: SettingsDoc) -> dict[str, Any]:
     merged: dict[str, Any] = {}
     apply_settings_doc(merged, doc.data)
@@ -303,6 +325,36 @@ def render_restrictions(settings: dict[str, Any]) -> str:
     if not lines:
         return ""
     return "## Enforced Restrictions\n\n" + "\n".join(lines)
+
+
+def render_instruction_file(
+    title: str,
+    sections: Iterable[Section],
+    settings: dict[str, Any],
+) -> str:
+    blocks = [render_instruction_section(section) for section in sections]
+    restrictions = render_restrictions(settings)
+    if restrictions:
+        blocks.append(restrictions)
+    return f"# {title}\n\n" + "\n\n".join(blocks).strip() + "\n"
+
+
+def render_instruction_section(section: Section) -> str:
+    body = demote_headings(section.body.strip())
+    if first_content_line(body).startswith("## "):
+        return body
+    return f"## {section.title}\n\n{body}".strip()
+
+
+def demote_headings(markdown: str) -> str:
+    return HEADING.sub(lambda match: "#" + match.group(1), markdown)
+
+
+def first_content_line(markdown: str) -> str:
+    for line in markdown.splitlines():
+        if line.strip():
+            return line
+    return ""
 
 
 def command_subject(pattern: str) -> str:

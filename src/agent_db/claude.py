@@ -15,11 +15,8 @@ from typing import Any
 from agent_db import files
 from agent_db.source import (
     AgentSource,
-    assemble_sections,
-    merged_agents,
-    merged_settings,
-    merged_skills,
-    render_restrictions,
+    assemble,
+    render_instruction_file,
     validate_namespaces,
 )
 
@@ -32,29 +29,15 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
     home = claude_home.expanduser().resolve()
     home.mkdir(parents=True, exist_ok=True)
 
-    settings_data = merged_settings(source)
-    validate_namespaces(settings_data)
+    assembly = assemble(source)
 
     written: list[Path] = []
-    sections = assemble_sections(source)
+    sections = assembly.sections
     claude_md_sections = tuple(section for section in sections if not section.claude_output_style)
     output_style_sections = tuple(section for section in sections if section.claude_output_style)
 
-    rules_dir = home / "rules"
-    rules_dir.mkdir(parents=True, exist_ok=True)
-    for section in claude_md_sections:
-        path = rules_dir / f"{section.key}.md"
-        if files.write_text(path, section.body):
-            written.append(path)
-
-    permissions = render_restrictions(settings_data)
-    if permissions:
-        path = rules_dir / "permissions.md"
-        if files.write_text(path, permissions + "\n"):
-            written.append(path)
-
     claude_md = home / "CLAUDE.md"
-    rendered = render_claude_md(claude_md_sections, include_permissions=bool(permissions))
+    rendered = render_instruction_file(claude_md.name, claude_md_sections, assembly.settings)
     if files.write_text(claude_md, rendered):
         written.append(claude_md)
 
@@ -65,21 +48,12 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
             written.append(path)
 
     settings = home / "settings.json"
-    if write_settings(settings, settings_data, output_style=output_style):
+    if write_settings(settings, assembly.settings, output_style=output_style):
         written.append(settings)
 
-    written.extend(copy_assets(merged_skills(source), home / "skills"))
-    written.extend(copy_agents(merged_agents(source), home / "agents"))
+    written.extend(files.copy_assets(assembly.skills, home / "skills"))
+    written.extend(copy_agents(assembly.agents, home / "agents"))
     return written
-
-
-def render_claude_md(sections: Any, include_permissions: bool = False) -> str:
-    blocks = ["# CLAUDE.md"]
-    for section in sections:
-        blocks.append(f"## {section.title}\n\n@rules/{section.key}.md")
-    if include_permissions:
-        blocks.append("## Permissions\n\n@rules/permissions.md")
-    return "\n\n".join(blocks).strip() + "\n"
 
 
 def render_output_style(sections: Any) -> str:
@@ -183,20 +157,6 @@ def claude_command(pattern: str) -> str:
 def append_unique(items: list[str], value: str) -> None:
     if value not in items:
         items.append(value)
-
-
-def copy_assets(assets: Any, target_root: Path) -> list[Path]:
-    written: list[Path] = []
-    for asset in assets:
-        target = target_root / asset.name
-        for source_file in sorted(asset.path.rglob("*")):
-            if not source_file.is_file():
-                continue
-            relative = source_file.relative_to(asset.path)
-            target_file = target / relative
-            if files.copy_file(source_file, target_file):
-                written.append(target_file)
-    return written
 
 
 def copy_agents(agents: Any, target_root: Path) -> list[Path]:

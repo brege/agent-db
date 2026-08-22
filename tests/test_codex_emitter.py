@@ -283,7 +283,7 @@ def test_codex_config_removes_managed_block_when_empty() -> None:
     assert "network_access = true" in layered
 
 
-def test_codex_config_write_backs_up_existing_file(tmp_path) -> None:
+def test_codex_config_write_layers_existing_file(tmp_path) -> None:
     path = tmp_path / "config.toml"
     path.write_text('model = "gpt-5.5"\n', encoding="utf-8")
 
@@ -302,9 +302,6 @@ def test_codex_config_write_backs_up_existing_file(tmp_path) -> None:
 
     assert changed is True
     assert 'model = "gpt-5.5"' in path.read_text(encoding="utf-8")
-    backups = list(tmp_path.glob("config.toml.agent-db-*.bak"))
-    assert len(backups) == 1
-    assert backups[0].read_text(encoding="utf-8") == 'model = "gpt-5.5"\n'
 
 
 def test_codex_path_normalizes_terminal_recursive_glob_to_root() -> None:

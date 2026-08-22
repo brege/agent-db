@@ -88,14 +88,11 @@ def test_writes_claude_and_codex_globals(tmp_path) -> None:
     codex.write_global(source, codex_home)
 
     claude_md = (claude_home / "CLAUDE.md").read_text(encoding="utf-8")
-    assert claude_md.startswith("# CLAUDE.md\n\n## Code\n\n@rules/code.md\n")
-    assert "## Permissions\n\n@rules/permissions.md" in claude_md
-    assert "## Enforced Restrictions" not in claude_md
-    assert (claude_home / "rules" / "code.md").read_text(encoding="utf-8").count("# Code") == 1
-    permissions_md = (claude_home / "rules" / "permissions.md").read_text(encoding="utf-8")
-    assert "## Enforced Restrictions" in permissions_md
-    assert "- Never run 'git add' or any command matching it." in permissions_md
-    assert "- Never read files matching ~/.ssh/**." in permissions_md
+    assert claude_md.startswith("# CLAUDE.md\n\n## Code\n\ndist code")
+    assert "user code" in claude_md
+    assert "## Enforced Restrictions" in claude_md
+    assert "- Never run 'git add' or any command matching it." in claude_md
+    assert "- Never read files matching ~/.ssh/**." in claude_md
     claude_settings = json.loads((claude_home / "settings.json").read_text(encoding="utf-8"))
     assert claude_settings["permissions"]["deny"] == [
         "Bash(sudo:*)",
@@ -140,10 +137,11 @@ def test_defaults_tree_produces_valid_output(tmp_path) -> None:
 
     claude_md = (claude_home / "CLAUDE.md").read_text(encoding="utf-8")
     assert claude_md.startswith("# CLAUDE.md\n")
-    assert "@rules/code.md" in claude_md
-    assert "@rules/commands.md" in claude_md
-    assert "@rules/communication.md" not in claude_md
-    assert "@rules/documentation.md" in claude_md
+    assert "## Code" in claude_md
+    assert "## Commands" in claude_md
+    assert "## Communication" not in claude_md
+    assert "## Documentation" in claude_md
+    assert "## Enforced Restrictions" in claude_md
 
     output_style = (claude_home / "output-styles" / "agent-db.md").read_text(encoding="utf-8")
     assert "name: Agent DB" in output_style
