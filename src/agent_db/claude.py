@@ -33,11 +33,10 @@ def write_global(source: AgentSource, claude_home: Path) -> list[Path]:
 
     written: list[Path] = []
     sections = assembly.sections
-    claude_md_sections = tuple(section for section in sections if not section.claude_output_style)
     output_style_sections = tuple(section for section in sections if section.claude_output_style)
 
     claude_md = home / "CLAUDE.md"
-    rendered = render_instruction_file(claude_md.name, claude_md_sections, assembly.settings)
+    rendered = render_instruction_file(claude_md.name, sections, assembly.settings)
     if files.write_text(claude_md, rendered):
         written.append(claude_md)
 

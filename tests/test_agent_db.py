@@ -139,7 +139,7 @@ def test_defaults_tree_produces_valid_output(tmp_path) -> None:
     assert claude_md.startswith("# CLAUDE.md\n")
     assert "## Code" in claude_md
     assert "## Commands" in claude_md
-    assert "## Communication" not in claude_md
+    assert "## Communication" in claude_md
     assert "## Documentation" in claude_md
     assert "## Enforced Restrictions" in claude_md
 
