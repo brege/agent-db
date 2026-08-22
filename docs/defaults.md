@@ -1,46 +1,44 @@
 # Default security policy
 
-agent-db ships a dist-layer settings file (`defaults/settings.yaml`) that
-configures Claude Code and Codex with a security baseline before any user
-settings are applied. This document explains what the defaults assume, what
-they protect, and where to override them.
+agent-db loads distribution settings from `defaults/settings.yaml` and
+`defaults/settings/*.yaml` before user settings are applied. This document
+identifies the environment assumptions, access restrictions, and override
+behavior defined by those settings.
 
 
 ## Audience
 
 agent-db is built for a developer who runs coding agents on a personal Linux
-(or macOS) workstation where code repositories live alongside personal files,
-credentials, and browser profiles. The defaults reflect that split: agents
-should roam freely inside project directories but never touch personal data,
-key material, or infrastructure credentials.
+or macOS workstation where code repositories and personal data use the same
+filesystem. The defaults permit project-directory access and deny access to
+named credential, key, history, and browser-profile locations.
 
 If you run agents exclusively inside containers, VMs, or ephemeral CI
-environments, the path-level denials may be redundant. The sandbox and
-instruction defaults still apply.
+environments, the path-level denials may duplicate restrictions supplied by
+the outer environment. The sandbox and instruction defaults still apply.
 
 
 ## Assumptions
 
-The dist defaults assume the following about your environment:
+The distribution defaults assume the following about your environment:
 
-- You have credential files in standard locations (`~/.ssh`, `~/.aws`,
-  `~/.kube`, etc.) that agents should never read.
-- You use a shell (bash, zsh, or fish) whose history file may contain
-  pasted secrets.
-- You want Claude Code's OS-level sandbox enabled and enforced. If the
-  sandbox cannot start, the session should fail rather than run unsandboxed.
-- You want Bash commands to auto-execute inside the sandbox rather than
-  prompting for each one. The sandbox boundary, not a per-command prompt,
-  is the security mechanism.
-- You do not want the agent's name in your git co-author line.
-- You want thinking mode enabled by default.
-- Model selection is a user concern. The dist layer sets `model: haiku` as
-  a conservative default. Override it in your user layer.
+- Credential files may exist in standard locations such as `~/.ssh`,
+  `~/.aws`, and `~/.kube`.
+- Bash, Zsh, or Fish history files may contain pasted credentials or other
+  restricted values.
+- Claude Code's sandbox must start successfully. `failIfUnavailable: true`
+  prevents an unsandboxed fallback.
+- `autoAllowBashIfSandboxed: true` permits Bash commands without a separate
+  command prompt while the sandbox is active.
+- `includeCoAuthoredBy: false` disables Claude co-author attribution.
+- `alwaysThinkingEnabled: true` enables thinking mode.
+- The distribution sets `model: haiku`. User settings may replace this value.
 
 
 ## Claude Code sandbox
 
-The dist defaults enable Claude Code's sandbox in strict mode:
+The distribution enables Claude Code's sandbox with unavailable-sandbox
+failure and unsandboxed-command rejection:
 
 ```yaml
 claude:
@@ -51,34 +49,33 @@ claude:
     allowUnsandboxedCommands: false
 ```
 
-On Linux (kernel 5.13+), the sandbox uses Landlock LSM for filesystem
-isolation. On Fedora 7.x and other recent kernels, this provides full
-read/write/truncate coverage. On macOS, Seatbelt (sandbox-exec) provides
-equivalent process-level isolation.
+On supported Linux systems, Claude Code uses Landlock for filesystem
+isolation. On macOS, Claude Code uses Seatbelt. Kernel and Claude Code support
+determine the operations each backend restricts.
 
 `autoAllowBashIfSandboxed: true` means Bash commands run without a
-per-command permission prompt when the sandbox is active. The OS sandbox
-constrains what the process can access at the kernel level. This is the
-approach used by Trail of Bits and recommended by Anthropic's own
-`settings-bash-sandbox.json` example.
+per-command permission prompt when the sandbox is active. The operating
+system sandbox applies filesystem restrictions to the command process. The
+Trail of Bits configuration and Anthropic's `settings-bash-sandbox.json`
+example use this setting.
 
 `allowUnsandboxedCommands: false` rejects any command that cannot be
 sandboxed rather than falling back to unsandboxed execution.
 
-If you want both layers (sandbox as a safety net, plus per-command
-prompts), set `autoAllowBashIfSandboxed: false` in your user config.
+To require per-command prompts in addition to sandbox enforcement, set
+`autoAllowBashIfSandboxed: false` in user settings.
 
 
 ## Denied paths
 
-The dist defaults deny agent access to credential stores, key material,
+The distribution defaults deny agent access to credential stores, key material,
 and shell history. These are organized by category.
 
 ### Key material
 
 Directories containing cryptographic keys, password vaults, and desktop
-keyring databases. Full denial (read, edit, write, glob) on the entire
-directory tree.
+keyring databases. The rules deny read, edit, write, and glob operations for
+the complete directory tree.
 
 | Path | Contents |
 |---|---|
@@ -143,29 +140,38 @@ saved passwords, or OAuth tokens.
 
 ## What the defaults do not cover
 
-The dist defaults deliberately omit:
+The distribution defaults omit:
 
 - **Personal directories** (`~/Documents`, `~/Pictures`, etc.). These vary
-  by user and belong in your user-layer settings.
+  by user and must be declared in user-layer settings.
 - **Network egress control**. Claude Code supports domain allowlists via
-  `sandbox.network.allowedDomains`, but the right allowlist depends on
-  your stack. The dist layer does not restrict network access.
+  `sandbox.network.allowedDomains`, but the required domains depend on the
+  services used in each environment. The distribution does not restrict
+  network access.
 - **Codex-specific sandbox settings**. Codex uses `sandbox_mode` and
   `[sandbox_workspace_write]` or the newer permission profiles. These are
-  set per-user because `writable_roots` and `network_access` depend on
-  your project layout.
-- **Command-level deny rules**. The dist layer ships behavioral
-  instruction rules (in `defaults/instructions/commands.md`) rather than
-  settings-level command denials. Command denials in settings.json are
-  translated per-agent and have known enforcement gaps; the instruction
-  rules are a complementary layer.
+  set in user configuration because `writable_roots` and `network_access`
+  depend on the project layout.
+
+## Command denials
+
+`defaults/settings/commands.yaml`, `defaults/settings/git.yaml`, and
+`defaults/settings/installers.yaml` define distribution command-denial
+patterns. agent-db translates these patterns into Claude Bash permission
+entries and renders representable command prefixes as Codex `.rules` entries.
+Generated CLAUDE.md and AGENTS.md files also include every denial as an
+instruction.
+
+Codex prefix rules cannot represent heredoc shell syntax. agent-db omits those
+patterns from `.rules` output and reports each omission when the corresponding
+rules file changes. The generated instruction files retain the patterns.
 
 
 ## Overriding defaults
 
-The user layer (`~/.config/agent-db/settings.yaml` on Linux) merges on
-top of the dist layer. Use `append:` to add rules while preserving dist
-defaults. Use `override:` to replace an entire namespace.
+The user layer (`~/.config/agent-db/settings.yaml` on Linux) is merged after
+the distribution layer. Use `append:` to add rules while preserving
+distribution defaults. Use `override:` to replace an entire namespace.
 
 To add personal directory denials and project-specific allows:
 
@@ -183,7 +189,7 @@ append:
     model: claude-opus-4-5-20251101
 ```
 
-Using `override:` for the `claude:` namespace replaces the entire dist
+Using `override:` for the `claude:` namespace replaces the entire distribution
 `claude:` block, including the sandbox settings. If you override `claude:`
 to set a model, you must re-declare the sandbox settings you want to keep.
 Prefer `append:` for scalar overrides like `model:`, which replaces only
@@ -192,14 +198,14 @@ that key while preserving the rest.
 
 ## References
 
-Security configurations and hardening guides from the community that
-informed these defaults.
+The following security configurations and hardening guides provided source
+material for these defaults.
 
 ### Agent vendor examples
 
 - [Anthropic claude-code examples/settings](https://github.com/anthropics/claude-code/tree/main/examples/settings):
   `settings-strict.json`, `settings-bash-sandbox.json`, and
-  `settings-lax.json` covering the full strictness spectrum.
+  `settings-lax.json` provide strict, sandboxed Bash, and permissive examples.
 
 ### Published security configs
 
@@ -212,7 +218,7 @@ informed these defaults.
 - [okdt codex-cli-hardening-cheatsheet](https://github.com/okdt/codex-cli-hardening-cheatsheet):
   Codex-specific Starlark rules and sandbox profiles.
 - [dylancaponi/claude-code-permissions](https://github.com/dylancaponi/claude-code-permissions):
-  three-layer approach (settings, hooks, macOS Seatbelt) with compound
+  settings, hooks, and macOS Seatbelt enforcement with compound
   command splitting in the hook layer.
 - [fcakyon/claude-codex-settings](https://github.com/fcakyon/claude-codex-settings):
   allowlist-only model with domain-scoped WebFetch permissions.
@@ -220,13 +226,13 @@ informed these defaults.
 ### Dotfiles and practitioner configs
 
 - [vsbuffalo/dotfiles](https://github.com/vsbuffalo/dotfiles/blob/main/docs/claude-code.md):
-  three-tier allowlist philosophy (always, deny-variants, prompted).
+  three allowlist tiers: always allowed, denied variants, and prompted.
 - [Harper Reed dotfiles](https://github.com/harperreed/dotfiles/blob/master/.claude/CLAUDE.md):
   behavioral constraints via CLAUDE.md rather than settings.json hardening.
 - [feiskyer/codex-settings](https://github.com/feiskyer/codex-settings/blob/main/config.toml):
   Codex workspace-write with LiteLLM gateway.
 - [affaan-m/everything-claude-code](https://github.com/affaan-m/everything-claude-code/blob/main/.codex/config.toml):
-  multi-agent Codex setup with strict/yolo profiles.
+  multi-agent Codex setup with strict and unrestricted profiles.
 
 ### Sandbox architectures
 
@@ -243,5 +249,5 @@ informed these defaults.
 ### Analysis and commentary
 
 - [Simon Willison, "Living dangerously with Claude"](https://simonwillison.net/2025/Oct/22/living-dangerously-with-claude/):
-  argues for OS-level sandboxing over prompt-based permissions; flags
-  network egress as the underappreciated threat vector.
+  argues for OS-level sandboxing over prompt-based permissions and identifies
+  network egress as a significant risk.

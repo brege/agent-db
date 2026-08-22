@@ -6,8 +6,11 @@ Build personal Claude Code and Codex configuration from one authoring tree.
 
 ## Install
 
+Installation requires Python 3.14 or newer and `uv`.
+
 ```bash
 git clone git@github.com:brege/agent-db.git
+cd agent-db
 uv tool install -e .
 ```
 
@@ -26,6 +29,8 @@ agent-db -m
 agent-db -m -a claude
 agent-db -m -a codex
 ```
+
+`-m|--memory` prints the instruction files that the agents load from the current directory. `-a|--agent` limits the report to `claude`, `codex`, or `all`.
 
 ## Screenshot
 
@@ -51,8 +56,8 @@ Claude output goes to `~/.claude` unless `CLAUDE_CONFIG_DIR` is set:
 
 ```text
 CLAUDE.md
+output-styles/agent-db.md
 settings.json
-rules/*.md
 skills/*/SKILL.md
 agents/*.md
 ```
@@ -67,6 +72,8 @@ skills/*/SKILL.md
 agents/*.toml
 ```
 
+`config.toml` is written only when authored Codex settings produce managed content or an existing managed block must change.
+
 ## Authoring
 
 Markdown in `instructions/` becomes shared guidance for both tools. Files are merged by title key. A file can set frontmatter:
@@ -78,19 +85,40 @@ override: true
 ---
 ```
 
-Settings live in `settings.yaml` or `settings/*.yaml`. Use `append` for merged settings and `override` for replacement values.
+Settings live in `settings.yaml` or `settings/*.yaml`. `append` recursively merges mappings, extends lists, and replaces scalar or incompatible values. `override` replaces each named value wholesale.
+
+## Project skill synchronization
+
+A project can copy one skill source to multiple targets through `agent-db.toml`:
+
+```toml
+[skills]
+source = "skills"
+targets = [".claude/skills", ".agents/skills"]
+```
+
+Run synchronization from the project root:
+
+```bash
+agent-db sync
+```
+
+The command removes stale files only inside top-level skill directories present in the source. It does not remove unrelated sibling skills from a target.
 
 ## Security defaults
 
-The dist layer ships a credential-path deny list and strict Claude Code sandbox settings out of the box. See [docs/defaults.md](docs/defaults.md) for what is denied, what is assumed about the user's environment, and how to override.
+The distribution defines credential-path denials and enables Claude Code sandbox settings. See [docs/defaults.md](docs/defaults.md) for the denied locations, environment assumptions, and override behavior.
 
 ## References
 
 Curated doc links live in [docs/reference/README.md](docs/reference/README.md). Generated reference snapshots under `docs/reference/claude/`, `docs/reference/codex/`, and `docs/reference/agents.md/` are ignored by git.
 
-Refresh local snapshots with 
+Refresh local snapshots with:
+
 ```bash
-agent-db -r
+agent-db --refresh
 ```
 
-<a href="#readme"><img src="docs/img/badge.svg" width="200" align="right" /></a>
+## License
+
+agent-db is distributed under the [GNU General Public License version 3](LICENSE).
